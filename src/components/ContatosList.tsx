@@ -1,14 +1,18 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Search, Download, Upload, Phone, Mail, ChevronRight } from 'lucide-react'
+import { Search, Download, Upload, Phone, Mail, ChevronRight, AlertTriangle } from 'lucide-react'
 import { Contato } from '@/types'
 import ContatoModal from './ContatoModal'
+import DuplicadosModal from './DuplicadosModal'
 import Navbar from './Navbar'
+
+interface DupGroup { campo: string; contatos: Contato[] }
 
 interface Props {
   contatos: Contato[]
   email: string
+  duplicates: { byPhone: DupGroup[]; byEmail: DupGroup[] }
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -23,13 +27,15 @@ function tagColor(tag: string) {
   return TAG_COLORS[tag] ?? 'bg-gray-100 text-gray-600'
 }
 
-export default function ContatosList({ contatos: initial, email }: Props) {
+export default function ContatosList({ contatos: initial, email, duplicates }: Props) {
   const [contatos] = useState<Contato[]>(initial)
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState('')
   const [modal, setModal] = useState<Contato | 'new' | null>(null)
-  const [showNewContact, setShowNewContact] = useState(false)
+  const [showDuplicados, setShowDuplicados] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const totalDups = duplicates.byPhone.length + duplicates.byEmail.length
 
   const allTags = Array.from(new Set(contatos.flatMap(c => c.tags ?? [])))
 
@@ -92,6 +98,15 @@ export default function ContatosList({ contatos: initial, email }: Props) {
               <h1 className="text-2xl font-bold text-gray-900">Contatos</h1>
             </div>
             <div className="flex items-center gap-2">
+              {totalDups > 0 && (
+                <button
+                  onClick={() => setShowDuplicados(true)}
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors font-medium"
+                >
+                  <AlertTriangle size={14} className="text-amber-500" />
+                  Existe{totalDups > 1 ? 'm' : ''} {totalDups} grupo{totalDups > 1 ? 's' : ''} de duplicados
+                </button>
+              )}
               <button
                 onClick={exportCSV}
                 className="flex items-center gap-1.5 px-3 py-2 text-sm text-gray-600 bg-white hover:bg-gray-50 border border-gray-200 rounded-lg transition-colors"
@@ -226,6 +241,14 @@ export default function ContatosList({ contatos: initial, email }: Props) {
         <ContatoModal
           contato={modal === 'new' ? undefined : modal}
           onClose={() => setModal(null)}
+        />
+      )}
+
+      {showDuplicados && (
+        <DuplicadosModal
+          byPhone={duplicates.byPhone}
+          byEmail={duplicates.byEmail}
+          onClose={() => setShowDuplicados(false)}
         />
       )}
     </>
