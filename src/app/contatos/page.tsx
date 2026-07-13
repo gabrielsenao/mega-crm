@@ -21,10 +21,12 @@ export default async function ContatosPage() {
   }
 
   const { getContatos } = await import('@/app/actions/contatos')
-  const [contatos, duplicates] = await Promise.all([
+  const { getLeads } = await import('@/app/actions/leads')
+  const [contatos, duplicates, leads] = await Promise.all([
     getContatos(),
     getDuplicates(),
+    getLeads(),
   ])
 
-  return <ContatosList contatos={contatos} email={user!.email ?? ''} duplicates={duplicates} />
+  return <ContatosList contatos={contatos} email={user!.email ?? ''} duplicates={duplicates} leads={leads as any} />
 }

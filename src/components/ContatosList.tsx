@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { Search, Download, Upload, Phone, Mail, ChevronRight, AlertTriangle } from 'lucide-react'
-import { Contato } from '@/types'
+import { Contato, Lead } from '@/types'
 import ContatoModal from './ContatoModal'
 import DuplicadosModal from './DuplicadosModal'
 import Navbar from './Navbar'
@@ -13,6 +13,7 @@ interface Props {
   contatos: Contato[]
   email: string
   duplicates: { byPhone: DupGroup[]; byEmail: DupGroup[] }
+  leads?: Lead[]
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -23,11 +24,35 @@ const TAG_COLORS: Record<string, string> = {
   'Forms':     'bg-cyan-100 text-cyan-700',
 }
 
+const COLUNA_COLORS: Record<string, string> = {
+  'Base':        'bg-gray-100 text-gray-600',
+  'Agendamento': 'bg-blue-100 text-blue-700',
+  'Fechados':    'bg-emerald-100 text-emerald-700',
+  'Perdido':     'bg-red-100 text-red-600',
+}
+
 function tagColor(tag: string) {
   return TAG_COLORS[tag] ?? 'bg-gray-100 text-gray-600'
 }
 
-export default function ContatosList({ contatos: initial, email, duplicates }: Props) {
+function normalizePhone(p: string | null) {
+  return (p ?? '').replace(/\D/g, '').slice(-9)
+}
+
+// Linha unificada: um contato + o lead vinculado (se houver)
+interface Row {
+  id: string
+  nome: string
+  email: string | null
+  numero: string | null
+  tags: string[]
+  created_at: string
+  negocio: { coluna: string; id: string } | null
+  source: 'contato' | 'lead'
+  contatoData?: Contato
+}
+
+export default function ContatosList({ contatos: initial, email, duplicates, leads = [] }: Props) {
   const [contatos] = useState<Contato[]>(initial)
   const [search, setSearch] = useState('')
   const [filterTag, setFilterTag] = useState('')
@@ -37,25 +62,75 @@ export default function ContatosList({ contatos: initial, email, duplicates }: P
 
   const totalDups = duplicates.byPhone.length + duplicates.byEmail.length
 
-  const allTags = Array.from(new Set(contatos.flatMap(c => c.tags ?? [])))
+  // Mapa phone → lead e email → lead para lookup rápido
+  const leadByPhone = new Map<string, Lead>()
+  const leadByEmail = new Map<string, Lead>()
+  for (const l of leads) {
+    if (l.numero) leadByPhone.set(normalizePhone(l.numero), l)
+    if (l.email) leadByEmail.set(l.email.toLowerCase().trim(), l)
+  }
 
-  const filtered = contatos.filter(c => {
+  // Constrói linhas: começa pelos contatos e vincula lead se houver
+  const contatoIds = new Set<string>()
+  const rows: Row[] = contatos.map(c => {
+    const phoneKey = normalizePhone(c.numero)
+    const emailKey = (c.email ?? '').toLowerCase().trim()
+    const lead = leadByPhone.get(phoneKey) ?? leadByEmail.get(emailKey) ?? null
+    if (lead) contatoIds.add(lead.id)
+    return {
+      id: c.id,
+      nome: c.nome,
+      email: c.email,
+      numero: c.numero,
+      tags: c.tags ?? [],
+      created_at: c.created_at,
+      negocio: lead ? { coluna: lead.coluna, id: lead.id } : null,
+      source: 'contato',
+      contatoData: c,
+    }
+  })
+
+  // Leads que não têm contato correspondente também aparecem
+  for (const l of leads) {
+    if (!contatoIds.has(l.id)) {
+      const tags = l.informacoes_adicionais
+        ? l.informacoes_adicionais.split(',').map(t => t.trim()).filter(Boolean)
+        : []
+      rows.push({
+        id: l.id,
+        nome: l.nome,
+        email: l.email,
+        numero: l.numero,
+        tags,
+        created_at: l.created_at,
+        negocio: { coluna: l.coluna, id: l.id },
+        source: 'lead',
+      })
+    }
+  }
+
+  // Ordena por data de criação (mais recente primeiro)
+  rows.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  const allTags = Array.from(new Set(rows.flatMap(r => r.tags)))
+
+  const filtered = rows.filter(r => {
     const matchSearch = !search ||
-      c.nome.toLowerCase().includes(search.toLowerCase()) ||
-      c.email?.toLowerCase().includes(search.toLowerCase()) ||
-      c.numero?.includes(search)
-    const matchTag = !filterTag || (c.tags ?? []).includes(filterTag)
+      r.nome.toLowerCase().includes(search.toLowerCase()) ||
+      r.email?.toLowerCase().includes(search.toLowerCase()) ||
+      r.numero?.includes(search)
+    const matchTag = !filterTag || r.tags.includes(filterTag)
     return matchSearch && matchTag
   })
 
   function exportCSV() {
-    const header = 'Nome,Email,Número,Tags,Informações'
-    const rows = contatos.map(c =>
-      [c.nome, c.email ?? '', c.numero ?? '', (c.tags ?? []).join('|'), c.informacoes_adicionais ?? '']
+    const header = 'Nome,Email,Número,Tags,Negócio'
+    const csvRows = rows.map(r =>
+      [r.nome, r.email ?? '', r.numero ?? '', r.tags.join('|'), r.negocio?.coluna ?? '']
         .map(v => `"${v.replace(/"/g, '""')}"`)
         .join(',')
     )
-    const csv = [header, ...rows].join('\n')
+    const csv = [header, ...csvRows].join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -71,13 +146,13 @@ export default function ContatosList({ contatos: initial, email, duplicates }: P
     const text = await file.text()
     const lines = text.trim().split('\n')
     const header = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase())
-    const rows = lines.slice(1).map(line => {
+    const csvRows = lines.slice(1).map(line => {
       const cols = line.split(',').map(v => v.replace(/^"|"$/g, '').trim())
       return Object.fromEntries(header.map((h, i) => [h, cols[i] ?? '']))
     })
 
     const { importContatos } = await import('@/app/actions/contatos')
-    await importContatos(rows as any)
+    await importContatos(csvRows as any)
     e.target.value = ''
     window.location.reload()
   }
@@ -166,53 +241,50 @@ export default function ContatosList({ contatos: initial, email, duplicates }: P
             ) : (
               <table className="w-full">
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.map(c => (
+                  {filtered.map(r => (
                     <tr
-                      key={c.id}
-                      onClick={() => setModal(c)}
+                      key={r.id}
+                      onClick={() => r.contatoData ? setModal(r.contatoData) : null}
                       className="flex items-center px-5 py-3.5 hover:bg-gray-50 cursor-pointer transition-colors"
                     >
                       {/* Avatar */}
                       <td className="w-10 flex-shrink-0">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
                           <span className="text-white text-sm font-semibold">
-                            {c.nome.charAt(0).toUpperCase()}
+                            {r.nome.charAt(0).toUpperCase()}
                           </span>
                         </div>
                       </td>
 
                       {/* Nome */}
                       <td className="flex-1 min-w-0 px-4">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{c.nome}</p>
-                        {c.informacoes_adicionais && (
-                          <p className="text-xs text-gray-400 truncate">{c.informacoes_adicionais}</p>
-                        )}
+                        <p className="text-sm font-semibold text-gray-900 truncate">{r.nome}</p>
                       </td>
 
                       {/* Contato */}
-                      <td className="w-52 flex-shrink-0 px-4">
+                      <td className="w-48 flex-shrink-0 px-4">
                         <div className="space-y-0.5">
-                          {c.numero && (
+                          {r.numero && (
                             <div className="flex items-center gap-1.5 text-xs text-gray-500">
                               <Phone size={11} className="text-gray-400" />
-                              {c.numero}
+                              {r.numero}
                             </div>
                           )}
-                          {c.email && (
+                          {r.email && (
                             <div className="flex items-center gap-1.5 text-xs text-gray-500">
                               <Mail size={11} className="text-gray-400" />
-                              <span className="truncate max-w-36">{c.email}</span>
+                              <span className="truncate max-w-36">{r.email}</span>
                             </div>
                           )}
                         </div>
                       </td>
 
-                      {/* Lista / Tags */}
-                      <td className="w-56 flex-shrink-0 px-4">
+                      {/* Tags */}
+                      <td className="w-48 flex-shrink-0 px-4">
                         <div className="flex flex-wrap gap-1">
-                          {(c.tags ?? []).length === 0 ? (
-                            <span className="text-xs text-gray-300">—</span>
-                          ) : (c.tags ?? []).map(tag => (
+                          {r.tags.length === 0 ? (
+                            <span className="text-xs text-gray-300">Sem tags</span>
+                          ) : r.tags.map(tag => (
                             <span key={tag} className={`text-xs px-2 py-0.5 rounded-full font-medium ${tagColor(tag)}`}>
                               {tag}
                             </span>
@@ -220,9 +292,20 @@ export default function ContatosList({ contatos: initial, email, duplicates }: P
                         </div>
                       </td>
 
+                      {/* Negócio */}
+                      <td className="w-36 flex-shrink-0 px-4">
+                        {r.negocio ? (
+                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${COLUNA_COLORS[r.negocio.coluna] ?? 'bg-gray-100 text-gray-600'}`}>
+                            {r.negocio.coluna}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-300">Sem negócio</span>
+                        )}
+                      </td>
+
                       {/* Data */}
-                      <td className="w-24 flex-shrink-0 text-xs text-gray-400 text-right px-2">
-                        {new Date(c.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                      <td className="w-20 flex-shrink-0 text-xs text-gray-400 text-right px-2">
+                        {new Date(r.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                       </td>
 
                       <td className="w-8 flex-shrink-0 text-right">
