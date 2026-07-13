@@ -68,6 +68,38 @@ export async function moveLeadColumn(id: string, coluna: Column, posicao: number
   revalidatePath('/')
 }
 
+export async function importLeads(leadsJson: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Não autenticado')
+
+  const leads = JSON.parse(leadsJson) as Array<{
+    nome: string
+    email: string | null
+    numero: string | null
+    informacoes_adicionais: string | null
+    coluna: 'Base' | 'Agendamento' | 'Fechados'
+  }>
+
+  const BATCH = 100
+  let ok = 0
+  let err = 0
+
+  for (let i = 0; i < leads.length; i += BATCH) {
+    const batch = leads.slice(i, i + BATCH).map((l, idx) => ({
+      ...l,
+      posicao: i + idx,
+      user_id: user.id,
+    }))
+    const { error } = await supabase.from('leads').insert(batch)
+    if (error) err += batch.length
+    else ok += batch.length
+  }
+
+  revalidatePath('/')
+  return { ok, err }
+}
+
 export async function logout() {
   const supabase = await createClient()
   await supabase.auth.signOut()

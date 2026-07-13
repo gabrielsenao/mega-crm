@@ -6,7 +6,8 @@ import { COLUMNS } from '@/types'
 import Navbar from './Navbar'
 import KanbanBoard from './KanbanBoard'
 import LeadModal from './LeadModal'
-import { LayoutGrid, ChevronDown, ChevronRight } from 'lucide-react'
+import { LayoutGrid, ChevronDown, ChevronRight, Upload } from 'lucide-react'
+import ImportLeadsModal from './ImportLeadsModal'
 
 interface Props {
   leads: Lead[]
@@ -17,12 +18,13 @@ const ORIGENS = ['InLead', '3C Plus', 'Unnichat']
 
 export default function KanbanBoardWrapper({ leads, email }: Props) {
   const [showNewLead, setShowNewLead] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [origemAtiva, setOrigemAtiva] = useState('InLead')
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <Navbar email={email} onNewLead={() => setShowNewLead(true)} />
+      <Navbar email={email} onNewLead={() => setShowNewLead(true)} onImportLeads={() => setShowImport(true)} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
@@ -91,6 +93,9 @@ export default function KanbanBoardWrapper({ leads, email }: Props) {
 
       {showNewLead && (
         <LeadModal onClose={() => setShowNewLead(false)} />
+      )}
+      {showImport && (
+        <ImportLeadsModal onClose={() => setShowImport(false)} />
       )}
     </div>
   )

@@ -1,6 +1,6 @@
 'use client'
 
-import { LogOut, Plus } from 'lucide-react'
+import { LogOut, Plus, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { logout } from '@/app/actions/leads'
@@ -9,9 +9,10 @@ interface Props {
   email: string
   onNewLead?: () => void
   onNewContact?: () => void
+  onImportLeads?: () => void
 }
 
-export default function Navbar({ email, onNewLead, onNewContact }: Props) {
+export default function Navbar({ email, onNewLead, onNewContact, onImportLeads }: Props) {
   const pathname = usePathname()
   const isContatos = pathname === '/contatos'
 
@@ -54,6 +55,15 @@ export default function Navbar({ email, onNewLead, onNewContact }: Props) {
         <div className="flex-1" />
 
         {/* Ação contextual */}
+        {!isContatos && onImportLeads && (
+          <button
+            onClick={onImportLeads}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors"
+          >
+            <Upload size={15} />
+            Importar
+          </button>
+        )}
         {!isContatos && onNewLead && (
           <button
             onClick={onNewLead}
