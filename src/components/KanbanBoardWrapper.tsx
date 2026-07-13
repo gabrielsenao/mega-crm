@@ -86,7 +86,7 @@ export default function KanbanBoardWrapper({ leads, email }: Props) {
             <h1 className="text-xl font-bold text-gray-900">{origemAtiva}</h1>
           </div>
           <div className="flex-1 overflow-hidden">
-            <KanbanBoard initialLeads={leads} onNewLead={() => setShowNewLead(true)} />
+            <KanbanBoard initialLeads={leads} onNewLead={() => setShowNewLead(true)} origemAtiva={origemAtiva} />
           </div>
         </main>
       </div>

@@ -6,6 +6,7 @@ import { Plus, Phone, Mail, MoreHorizontal, MessageCircle, UserPlus, Search, Sli
 import { Lead, Column, COLUMNS } from '@/types'
 import { moveLeadColumn } from '@/app/actions/leads'
 import LeadModal from './LeadModal'
+import LeadDetailPanel from './LeadDetailPanel'
 
 function diasDesde(date: string) {
   const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
@@ -17,11 +18,12 @@ function diasDesde(date: string) {
 interface Props {
   initialLeads: Lead[]
   onNewLead: () => void
+  origemAtiva?: string
 }
 
-export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
+export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'InLead' }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
-  const [modalLead, setModalLead] = useState<Lead | null>(null)
+  const [detailLead, setDetailLead] = useState<Lead | null>(null)
   const [search, setSearch] = useState('')
 
   const filtered = leads.filter(l =>
@@ -123,7 +125,7 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                onClick={() => setModalLead(lead)}
+                                onClick={() => setDetailLead(lead)}
                                 className={`bg-white rounded-lg p-3 cursor-pointer border transition-all ${
                                   snapshot.isDragging
                                     ? 'shadow-lg border-blue-200 rotate-1'
@@ -193,10 +195,11 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
         </DragDropContext>
       </div>
 
-      {modalLead && (
-        <LeadModal
-          lead={modalLead}
-          onClose={() => setModalLead(null)}
+      {detailLead && (
+        <LeadDetailPanel
+          lead={detailLead}
+          origemAtiva={origemAtiva}
+          onClose={() => setDetailLead(null)}
         />
       )}
     </>
