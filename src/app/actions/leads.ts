@@ -46,9 +46,19 @@ export async function updateLead(id: string, formData: FormData) {
     email: formData.get('email') as string || null,
     numero: formData.get('numero') as string || null,
     informacoes_adicionais: formData.get('informacoes_adicionais') as string || null,
+    dono: formData.get('dono') as string || null,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
 
+  revalidatePath('/')
+}
+
+export async function updateLeadDono(id: string, dono: string | null) {
+  const supabase = await createClient()
+  await supabase.from('leads').update({
+    dono: dono || null,
+    updated_at: new Date().toISOString(),
+  }).eq('id', id)
   revalidatePath('/')
 }
 

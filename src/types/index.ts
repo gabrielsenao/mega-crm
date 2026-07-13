@@ -10,6 +10,7 @@ export interface Lead {
   informacoes_adicionais: string | null
   coluna: Column
   posicao: number
+  dono: string | null
   user_id: string
   created_at: string
   updated_at: string

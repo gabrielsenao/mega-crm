@@ -1,19 +1,140 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { Plus, Phone, Mail, MoreHorizontal, MessageCircle, UserPlus, Search, SlidersHorizontal } from 'lucide-react'
+import { Plus, Phone, Mail, MoreHorizontal, MessageCircle, Search, SlidersHorizontal, UserMinus, ChevronDown } from 'lucide-react'
 import { Lead, Column, COLUMNS } from '@/types'
-import { moveLeadColumn } from '@/app/actions/leads'
+import { moveLeadColumn, updateLeadDono } from '@/app/actions/leads'
 import LeadModal from './LeadModal'
 import LeadDetailPanel from './LeadDetailPanel'
 
-function diasDesde(date: string) {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function tempoDesde(date: string) {
   const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
   if (d === 0) return 'hoje'
   if (d === 1) return '1d'
   return `${d}d`
 }
+
+const DONO_COLORS = [
+  'bg-violet-500', 'bg-blue-500', 'bg-emerald-500',
+  'bg-orange-500', 'bg-pink-500', 'bg-teal-500',
+]
+function donoColor(nome: string) {
+  return DONO_COLORS[nome.charCodeAt(0) % DONO_COLORS.length]
+}
+
+function dateRangeFilter(date: string, preset: string): boolean {
+  if (!preset) return true
+  const d = new Date(date)
+  const now = new Date()
+  const startOf = (unit: 'day' | 'week' | 'month' | 'year') => {
+    const s = new Date(now)
+    if (unit === 'day') s.setHours(0, 0, 0, 0)
+    if (unit === 'week') { s.setDate(s.getDate() - s.getDay()); s.setHours(0, 0, 0, 0) }
+    if (unit === 'month') { s.setDate(1); s.setHours(0, 0, 0, 0) }
+    if (unit === 'year') { s.setMonth(0, 1); s.setHours(0, 0, 0, 0) }
+    return s
+  }
+  switch (preset) {
+    case 'hoje':        return d >= startOf('day')
+    case 'ontem': {     const s = startOf('day'); s.setDate(s.getDate() - 1); const e = startOf('day'); return d >= s && d < e }
+    case 'semana':      return d >= startOf('week')
+    case 'semana_ant': { const e = startOf('week'); const s = new Date(e); s.setDate(s.getDate() - 7); return d >= s && d < e }
+    case 'mes':         return d >= startOf('month')
+    case 'mes_ant': {   const e = startOf('month'); const s = new Date(e); s.setMonth(s.getMonth() - 1); return d >= s && d < e }
+    case 'ano':         return d >= startOf('year')
+    default: return true
+  }
+}
+
+const DATE_PRESETS = [
+  { label: 'Hoje',           value: 'hoje' },
+  { label: 'Ontem',          value: 'ontem' },
+  { label: 'Essa semana',    value: 'semana' },
+  { label: 'Semana passada', value: 'semana_ant' },
+  { label: 'Esse mês',       value: 'mes' },
+  { label: 'Mês passado',    value: 'mes_ant' },
+  { label: 'Esse ano',       value: 'ano' },
+]
+
+// ── Componente de dono no card ────────────────────────────────────────────────
+
+function DonoButton({ lead }: { lead: Lead }) {
+  const [open, setOpen] = useState(false)
+  const [value, setValue] = useState(lead.dono ?? '')
+  const [saving, setSaving] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [open])
+
+  async function save() {
+    setSaving(true)
+    await updateLeadDono(lead.id, value || null)
+    setSaving(false)
+    setOpen(false)
+  }
+
+  return (
+    <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(!open)}
+        title={lead.dono ?? 'Sem dono'}
+        className="flex items-center justify-center"
+      >
+        {lead.dono ? (
+          <div className={`w-5 h-5 rounded-full ${donoColor(lead.dono)} flex items-center justify-center`}>
+            <span className="text-white text-[9px] font-bold leading-none">
+              {lead.dono.charAt(0).toUpperCase()}
+            </span>
+          </div>
+        ) : (
+          <UserMinus size={13} className="text-gray-300" />
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute bottom-7 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-xl p-3 w-44">
+          <p className="text-xs font-semibold text-gray-500 mb-2">Atribuir dono</p>
+          <input
+            autoFocus
+            value={value}
+            onChange={e => setValue(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') save() }}
+            placeholder="Nome do closer..."
+            className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 mb-2"
+          />
+          <div className="flex gap-1.5">
+            {value && (
+              <button
+                onClick={() => { setValue(''); updateLeadDono(lead.id, null); setOpen(false) }}
+                className="flex-1 py-1 text-xs text-gray-500 hover:text-red-500 border border-gray-200 rounded-lg transition-colors"
+              >
+                Remover
+              </button>
+            )}
+            <button
+              onClick={save}
+              disabled={saving}
+              className="flex-1 py-1 text-xs bg-violet-600 hover:bg-violet-700 text-white rounded-lg font-medium transition-colors"
+            >
+              {saving ? '...' : 'Salvar'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── KanbanBoard ───────────────────────────────────────────────────────────────
 
 interface Props {
   initialLeads: Lead[]
@@ -25,10 +146,28 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const [detailLead, setDetailLead] = useState<Lead | null>(null)
   const [search, setSearch] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const [dateOpen, setDateOpen] = useState(false)
+  const dateRef = useRef<HTMLDivElement>(null)
 
-  const filtered = leads.filter(l =>
-    !search || l.nome.toLowerCase().includes(search.toLowerCase())
-  )
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (dateRef.current && !dateRef.current.contains(e.target as Node)) setDateOpen(false)
+    }
+    if (dateOpen) document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [dateOpen])
+
+  const filtered = leads.filter(l => {
+    const q = search.toLowerCase()
+    const matchSearch = !q ||
+      l.nome.toLowerCase().includes(q) ||
+      (l.email ?? '').toLowerCase().includes(q) ||
+      (l.numero ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
+      (l.dono ?? '').toLowerCase().includes(q)
+    const matchDate = dateRangeFilter(l.created_at, dateFilter)
+    return matchSearch && matchDate
+  })
 
   const leadsByColumn = useCallback((col: Column) =>
     filtered.filter(l => l.coluna === col).sort((a, b) => a.posicao - b.posicao),
@@ -46,6 +185,10 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
     await moveLeadColumn(draggableId, destCol, destination.index)
   }
 
+  const dateLabel = dateFilter
+    ? DATE_PRESETS.find(p => p.value === dateFilter)?.label ?? 'Data'
+    : 'Data'
+
   const total = filtered.length
 
   return (
@@ -53,28 +196,63 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
       <div className="flex flex-col h-full">
         {/* Filtros */}
         <div className="flex items-center gap-2 mb-2 flex-shrink-0">
+          {/* Busca */}
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar..."
-              className="pl-8 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Nome, telefone ou e-mail..."
+              className="pl-8 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg w-52 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          {['Data', 'Campos', 'Tags', 'Status'].map(f => (
+
+          {/* Data */}
+          <div ref={dateRef} className="relative">
+            <button
+              onClick={() => setDateOpen(!dateOpen)}
+              className={`flex items-center gap-1 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+                dateFilter
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              {dateLabel}
+              <ChevronDown size={11} />
+            </button>
+            {dateOpen && (
+              <div className="absolute top-9 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-44">
+                <button
+                  onClick={() => { setDateFilter(''); setDateOpen(false) }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!dateFilter ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                >
+                  Qualquer data
+                </button>
+                <div className="h-px bg-gray-100 my-1" />
+                {DATE_PRESETS.map(p => (
+                  <button
+                    key={p.value}
+                    onClick={() => { setDateFilter(p.value); setDateOpen(false) }}
+                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${dateFilter === p.value ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {['Campos', 'Tags', 'Status'].map(f => (
             <button key={f} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-              {f}
-              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+              {f} <ChevronDown size={11} />
             </button>
           ))}
           <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-            <SlidersHorizontal size={13} />
-            Mais filtros
+            <SlidersHorizontal size={13} /> Mais filtros
           </button>
         </div>
 
-        {/* Contador separado */}
+        {/* Contador */}
         <p className="text-sm text-gray-600 mb-3 flex-shrink-0">
           {total.toLocaleString('pt-BR')} oportunidade{total !== 1 ? 's' : ''} de negócio
         </p>
@@ -86,7 +264,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
               const colLeads = leadsByColumn(col)
               return (
                 <div key={col} className="flex-shrink-0 w-64 flex flex-col">
-                  {/* Cabeçalho da coluna */}
+                  {/* Cabeçalho */}
                   <div className="flex items-center justify-between mb-1 px-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-800">{col}</span>
@@ -95,10 +273,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button
-                        onClick={onNewLead}
-                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors"
-                      >
+                      <button onClick={onNewLead} className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors">
                         <Plus size={14} />
                       </button>
                       <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors">
@@ -133,9 +308,9 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
                                 }`}
                               >
                                 {/* Tag */}
-                                <div className="flex items-center justify-between mb-2">
+                                <div className="mb-2">
                                   <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded font-medium">
-                                    {lead.informacoes_adicionais?.split(' ')[0] ?? 'Lead'}
+                                    {lead.informacoes_adicionais?.split(',')[0]?.trim() ?? 'Lead'}
                                   </span>
                                 </div>
 
@@ -151,26 +326,24 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
                                   </div>
                                 </div>
 
-                                {/* Ações + contador */}
+                                {/* Ações + dono + tempo */}
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2.5">
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="Atribuir">
-                                      <UserPlus size={13} />
-                                    </button>
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="Ligar">
+                                  <div className="flex items-center gap-2">
+                                    <DonoButton lead={lead} />
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
                                       <Phone size={13} />
                                     </button>
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="E-mail">
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
                                       <Mail size={13} />
                                     </button>
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="Mensagem">
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
                                       <MessageCircle size={13} />
                                     </button>
                                     <span className="text-xs text-gray-400 font-medium">R$0</span>
                                   </div>
                                   <div className="flex items-center gap-1 text-xs text-gray-400">
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                                    {diasDesde(lead.created_at)}
+                                    {tempoDesde(lead.updated_at)}
                                   </div>
                                 </div>
                               </div>

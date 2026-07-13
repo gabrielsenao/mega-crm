@@ -279,16 +279,24 @@ export default function LeadDetailPanel({ lead, origemAtiva, onClose }: Props) {
                       <span className="inline-block bg-violet-100 text-violet-700 text-sm font-medium px-3 py-1 rounded-full">{lead.coluna}</span>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-400 mb-1">Valor</p>
-                      <p className="text-sm font-semibold text-gray-700">R$0</p>
+                      <p className="text-xs text-gray-400 mb-1">Dono</p>
+                      <p className="text-sm text-gray-700">{lead.dono || <span className="italic text-gray-400">Sem dono</span>}</p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-400 mb-1">Criado em</p>
                       <p className="text-sm text-gray-700">{new Date(lead.created_at).toLocaleDateString('pt-BR')}</p>
                     </div>
                     <div>
+                      <p className="text-xs text-gray-400 mb-1">Última atualização</p>
+                      <p className="text-sm text-gray-700">{new Date(lead.updated_at).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <div>
                       <p className="text-xs text-gray-400 mb-1">Origem</p>
-                      <p className="text-sm text-gray-700">InLead</p>
+                      <p className="text-sm text-gray-700">{origemAtiva}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 mb-1">Valor</p>
+                      <p className="text-sm font-semibold text-gray-700">R$0</p>
                     </div>
                   </div>
                   <button
@@ -316,6 +324,10 @@ export default function LeadDetailPanel({ lead, origemAtiva, onClose }: Props) {
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Tags / Informações</label>
                     <input name="informacoes_adicionais" defaultValue={lead.informacoes_adicionais ?? ''} placeholder="Forms, Quente, VFX..." className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Dono</label>
+                    <input name="dono" defaultValue={lead.dono ?? ''} placeholder="Nome do closer responsável..." className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500" />
                   </div>
                   <div className="flex items-center gap-3 pt-2">
                     {!confirmDelete ? (
