@@ -90,9 +90,10 @@ function mapEtapa(val: string): 'Base' | 'Agendamento' | 'Fechados' {
 
 interface Props {
   onClose: () => void
+  origemAtiva?: string
 }
 
-export default function ImportLeadsModal({ onClose }: Props) {
+export default function ImportLeadsModal({ onClose, origemAtiva = 'InLead' }: Props) {
   const [step, setStep] = useState<Step>(1)
   const [csv, setCsv] = useState<ParsedCSV | null>(null)
   const [fileName, setFileName] = useState('')
@@ -142,7 +143,7 @@ export default function ImportLeadsModal({ onClose }: Props) {
           : etapaPadrao) as 'Base' | 'Agendamento' | 'Fechados',
       }))
 
-    const res = await importLeads(JSON.stringify(leads))
+    const res = await importLeads(JSON.stringify(leads), origemAtiva)
     setResult(res)
     setImporting(false)
     setStep(3)

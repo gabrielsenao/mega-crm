@@ -95,7 +95,7 @@ export default function KanbanBoardWrapper({ leads, email }: Props) {
         <LeadModal onClose={() => setShowNewLead(false)} />
       )}
       {showImport && (
-        <ImportLeadsModal onClose={() => setShowImport(false)} />
+        <ImportLeadsModal onClose={() => setShowImport(false)} origemAtiva={origemAtiva} />
       )}
     </div>
   )

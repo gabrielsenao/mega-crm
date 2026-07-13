@@ -68,7 +68,7 @@ export async function moveLeadColumn(id: string, coluna: Column, posicao: number
   revalidatePath('/')
 }
 
-export async function importLeads(leadsJson: string) {
+export async function importLeads(leadsJson: string, origem = 'InLead') {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
@@ -86,17 +86,31 @@ export async function importLeads(leadsJson: string) {
   let err = 0
 
   for (let i = 0; i < leads.length; i += BATCH) {
-    const batch = leads.slice(i, i + BATCH).map((l, idx) => ({
+    const slice = leads.slice(i, i + BATCH)
+
+    const leadsBatch = slice.map((l, idx) => ({
       ...l,
       posicao: i + idx,
       user_id: user.id,
     }))
-    const { error } = await supabase.from('leads').insert(batch)
-    if (error) err += batch.length
-    else ok += batch.length
+    const { error: leadsErr } = await supabase.from('leads').insert(leadsBatch)
+
+    const contatosBatch = slice.map(l => ({
+      nome: l.nome,
+      email: l.email,
+      numero: l.numero,
+      tags: [origem, ...(l.informacoes_adicionais ? [l.informacoes_adicionais] : [])].filter(Boolean),
+      informacoes_adicionais: null,
+      user_id: user.id,
+    }))
+    await supabase.from('contatos').insert(contatosBatch)
+
+    if (leadsErr) err += slice.length
+    else ok += slice.length
   }
 
   revalidatePath('/')
+  revalidatePath('/contatos')
   return { ok, err }
 }
 

@@ -127,7 +127,7 @@ export default function ContatosList({ contatos: initial, email }: Props) {
                 onChange={e => setFilterTag(e.target.value)}
                 className="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600"
               >
-                <option value="">Todas as tags</option>
+                <option value="">Todas as listas</option>
                 {allTags.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
             )}
@@ -192,10 +192,12 @@ export default function ContatosList({ contatos: initial, email }: Props) {
                         </div>
                       </td>
 
-                      {/* Tags */}
+                      {/* Lista / Tags */}
                       <td className="w-56 flex-shrink-0 px-4">
                         <div className="flex flex-wrap gap-1">
-                          {(c.tags ?? []).map(tag => (
+                          {(c.tags ?? []).length === 0 ? (
+                            <span className="text-xs text-gray-300">—</span>
+                          ) : (c.tags ?? []).map(tag => (
                             <span key={tag} className={`text-xs px-2 py-0.5 rounded-full font-medium ${tagColor(tag)}`}>
                               {tag}
                             </span>
