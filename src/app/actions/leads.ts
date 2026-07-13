@@ -25,6 +25,8 @@ export async function createLead(formData: FormData) {
     .select('*', { count: 'exact', head: true })
     .eq('coluna', 'Base')
 
+  const negocioId = formData.get('negocio_id') as string | null
+
   await supabase.from('leads').insert({
     nome: formData.get('nome') as string,
     email: formData.get('email') as string || null,
@@ -32,6 +34,7 @@ export async function createLead(formData: FormData) {
     informacoes_adicionais: formData.get('informacoes_adicionais') as string || null,
     coluna: 'Base',
     posicao: (count ?? 0),
+    negocio_id: negocioId || null,
     user_id: user.id,
   })
 
@@ -50,6 +53,23 @@ export async function updateLead(id: string, formData: FormData) {
     updated_at: new Date().toISOString(),
   }).eq('id', id)
 
+  revalidatePath('/')
+}
+
+export async function addNota(leadId: string, texto: string) {
+  const supabase = await createClient()
+  const { data } = await supabase.from('leads').select('notas').eq('id', leadId).single()
+  const notas = (data?.notas ?? []) as { id: string; texto: string; created_at: string }[]
+  const nova = { id: crypto.randomUUID(), texto, created_at: new Date().toISOString() }
+  await supabase.from('leads').update({ notas: [...notas, nova] }).eq('id', leadId)
+  revalidatePath('/')
+}
+
+export async function deleteNota(leadId: string, notaId: string) {
+  const supabase = await createClient()
+  const { data } = await supabase.from('leads').select('notas').eq('id', leadId).single()
+  const notas = (data?.notas ?? []) as { id: string; texto: string; created_at: string }[]
+  await supabase.from('leads').update({ notas: notas.filter(n => n.id !== notaId) }).eq('id', leadId)
   revalidatePath('/')
 }
 
@@ -78,7 +98,7 @@ export async function moveLeadColumn(id: string, coluna: Column, posicao: number
   revalidatePath('/')
 }
 
-export async function importLeads(leadsJson: string, origem = 'InLead') {
+export async function importLeads(leadsJson: string, origem = 'InLead', negocioId?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
@@ -101,6 +121,7 @@ export async function importLeads(leadsJson: string, origem = 'InLead') {
     const leadsBatch = slice.map((l, idx) => ({
       ...l,
       posicao: i + idx,
+      negocio_id: negocioId ?? null,
       user_id: user.id,
     }))
     const { error: leadsErr } = await supabase.from('leads').insert(leadsBatch)

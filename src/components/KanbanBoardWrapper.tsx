@@ -1,103 +1,232 @@
 'use client'
 
 import { useState } from 'react'
-import { Lead } from '@/types'
-import { COLUMNS } from '@/types'
+import { Lead, Origem, Negocio, COLUMNS } from '@/types'
 import Navbar from './Navbar'
 import KanbanBoard from './KanbanBoard'
 import LeadModal from './LeadModal'
-import { LayoutGrid, ChevronDown, ChevronRight, Upload } from 'lucide-react'
 import ImportLeadsModal from './ImportLeadsModal'
+import NovaOrigemModal from './NovaOrigemModal'
+import NovoNegocioModal from './NovoNegocioModal'
+import { ChevronDown, ChevronRight, Plus, LayoutGrid, Building2, MoreHorizontal } from 'lucide-react'
 
 interface Props {
   leads: Lead[]
+  origens: Origem[]
+  negocios: Negocio[]
   email: string
 }
 
-const ORIGENS = ['InLead', '3C Plus', 'Unnichat']
+export default function KanbanBoardWrapper({ leads, origens: initialOrigens, negocios: initialNegocios, email }: Props) {
+  const [origens, setOrigens] = useState<Origem[]>(initialOrigens)
+  const [negocios, setNegocios] = useState<Negocio[]>(initialNegocios)
 
-export default function KanbanBoardWrapper({ leads, email }: Props) {
   const [showNewLead, setShowNewLead] = useState(false)
   const [showImport, setShowImport] = useState(false)
-  const [origemAtiva, setOrigemAtiva] = useState('InLead')
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [showNovaOrigem, setShowNovaOrigem] = useState(false)
+  const [novoNegocioOrigemId, setNovoNegocioOrigemId] = useState<string | null>(null)
+
+  // Origem expandida no sidebar
+  const [origemExpandida, setOrigemExpandida] = useState<string | null>(
+    initialOrigens[0]?.id ?? null
+  )
+
+  // Negócio selecionado (null = todos os leads sem negocio)
+  const [negocioAtivo, setNegocioAtivo] = useState<Negocio | null>(null)
+
+  const etapasAtivas = negocioAtivo?.etapas ?? COLUMNS
+
+  function handleOrigemCreated(orig: Origem) {
+    setOrigens(prev => [...prev, orig])
+    setOrigemExpandida(orig.id)
+  }
+
+  function handleNegocioCreated(neg: Negocio) {
+    setNegocios(prev => [...prev, neg])
+    setNegocioAtivo(neg)
+  }
+
+  const origemDoNegocioAtivo = negocioAtivo
+    ? origens.find(o => o.id === negocioAtivo.origem_id)
+    : null
+
+  const novoNegocioOrigem = novoNegocioOrigemId
+    ? origens.find(o => o.id === novoNegocioOrigemId)
+    : null
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Navbar email={email} onNewLead={() => setShowNewLead(true)} onImportLeads={() => setShowImport(true)} />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <aside className="w-52 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-y-auto">
-          <div className="px-3 py-3">
-            {/* Origens */}
-            <button
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex items-center gap-1.5 w-full text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 hover:text-gray-700"
-            >
-              {sidebarOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              Origens
-            </button>
+        {/* ── Sidebar ── */}
+        <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-y-auto">
+          <div className="px-3 pt-3 pb-4">
 
-            {sidebarOpen && (
-              <div className="space-y-0.5 ml-1">
-                {ORIGENS.map(origem => (
-                  <button
-                    key={origem}
-                    onClick={() => setOrigemAtiva(origem)}
-                    className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-sm transition-colors text-left ${
-                      origemAtiva === origem
-                        ? 'bg-blue-50 text-blue-700 font-medium'
-                        : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <LayoutGrid size={13} className="flex-shrink-0" />
-                    {origem}
-                  </button>
-                ))}
+            {/* Cabeçalho Origens */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1">Origens</span>
+              <button
+                onClick={() => setShowNovaOrigem(true)}
+                title="Nova origem"
+                className="w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-violet-600 transition-colors"
+              >
+                <Plus size={12} />
+              </button>
+            </div>
+
+            {/* Lista de Origens */}
+            {origens.length === 0 ? (
+              <button
+                onClick={() => setShowNovaOrigem(true)}
+                className="w-full flex items-center gap-2 px-2 py-2 rounded-lg border border-dashed border-gray-200 text-gray-400 text-xs hover:border-violet-300 hover:text-violet-500 transition-colors"
+              >
+                <Plus size={11} />
+                Criar primeira origem
+              </button>
+            ) : (
+              <div className="space-y-0.5">
+                {origens.map(origem => {
+                  const negOrigem = negocios.filter(n => n.origem_id === origem.id)
+                  const expanded = origemExpandida === origem.id
+
+                  return (
+                    <div key={origem.id}>
+                      {/* Linha da origem */}
+                      <div className="flex items-center gap-1 group">
+                        <button
+                          onClick={() => setOrigemExpandida(expanded ? null : origem.id)}
+                          className="flex items-center gap-1.5 flex-1 px-1.5 py-1.5 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                        >
+                          {expanded
+                            ? <ChevronDown size={11} className="flex-shrink-0 text-gray-400" />
+                            : <ChevronRight size={11} className="flex-shrink-0 text-gray-400" />
+                          }
+                          <Building2 size={11} className="flex-shrink-0 text-violet-500" />
+                          <span className="truncate">{origem.nome}</span>
+                        </button>
+                        <button
+                          onClick={() => setNovoNegocioOrigemId(origem.id)}
+                          title="Novo negócio"
+                          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-violet-50 text-gray-400 hover:text-violet-600 transition-all flex-shrink-0"
+                        >
+                          <Plus size={11} />
+                        </button>
+                      </div>
+
+                      {/* Negócios da origem */}
+                      {expanded && (
+                        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-gray-100 pl-2">
+                          {negOrigem.length === 0 ? (
+                            <button
+                              onClick={() => setNovoNegocioOrigemId(origem.id)}
+                              className="w-full flex items-center gap-1 px-2 py-1.5 text-xs text-gray-400 hover:text-violet-500 transition-colors"
+                            >
+                              <Plus size={10} />
+                              Novo negócio
+                            </button>
+                          ) : (
+                            negOrigem.map(neg => (
+                              <button
+                                key={neg.id}
+                                onClick={() => setNegocioAtivo(neg)}
+                                className={`flex items-center gap-1.5 w-full px-2 py-1.5 rounded-lg text-xs transition-colors text-left ${
+                                  negocioAtivo?.id === neg.id
+                                    ? 'bg-violet-50 text-violet-700 font-semibold'
+                                    : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                              >
+                                <LayoutGrid size={10} className="flex-shrink-0" />
+                                <span className="truncate flex-1">{neg.nome}</span>
+                                <span className="text-[10px] text-gray-400 flex-shrink-0">
+                                  {leads.filter(l => l.negocio_id === neg.id).length}
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
 
-            {/* Etapas */}
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-1 px-1">
-              Etapas
-            </p>
-            <div className="space-y-0.5 ml-1">
-              {COLUMNS.map(col => {
-                const count = leads.filter(l => l.coluna === col).length
-                return (
-                  <div
-                    key={col}
-                    className="flex items-center justify-between px-2 py-1.5 rounded-lg text-sm text-gray-500"
-                  >
-                    <span>{col}</span>
-                    <span className="text-xs bg-gray-100 text-gray-500 rounded-full px-1.5">{count}</span>
-                  </div>
-                )
-              })}
-            </div>
+            {/* Etapas do negócio ativo */}
+            {negocioAtivo && (
+              <div className="mt-5">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">Etapas</p>
+                <div className="space-y-0.5 ml-1">
+                  {etapasAtivas.map(etapa => {
+                    const count = leads.filter(l => l.negocio_id === negocioAtivo.id && l.coluna === etapa).length
+                    return (
+                      <div key={etapa} className="flex items-center justify-between px-2 py-1 rounded-lg text-xs text-gray-500">
+                        <span>{etapa}</span>
+                        <span className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{count}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </aside>
 
-        {/* Conteúdo principal */}
+        {/* ── Conteúdo principal ── */}
         <main className="flex-1 overflow-hidden flex flex-col px-5 py-4">
           <div className="mb-3 flex-shrink-0">
-            <p className="text-xs text-gray-400 uppercase tracking-wide">Negócios da origem</p>
-            <h1 className="text-xl font-bold text-gray-900">{origemAtiva}</h1>
+            {negocioAtivo ? (
+              <>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">
+                  {origemDoNegocioAtivo?.nome ?? 'Negócios'}
+                </p>
+                <h1 className="text-xl font-bold text-gray-900">{negocioAtivo.nome}</h1>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Visão geral</p>
+                <h1 className="text-xl font-bold text-gray-900">
+                  {origens.length === 0 ? 'Crie uma origem para começar' : 'Selecione um negócio'}
+                </h1>
+              </>
+            )}
           </div>
           <div className="flex-1 overflow-hidden">
-            <KanbanBoard initialLeads={leads} onNewLead={() => setShowNewLead(true)} origemAtiva={origemAtiva} />
+            <KanbanBoard
+              initialLeads={leads}
+              onNewLead={() => setShowNewLead(true)}
+              negocioAtivo={negocioAtivo}
+              etapas={etapasAtivas}
+            />
           </div>
         </main>
       </div>
 
+      {/* Modais */}
       {showNewLead && (
-        <LeadModal onClose={() => setShowNewLead(false)} />
+        <LeadModal onClose={() => setShowNewLead(false)} negocioId={negocioAtivo?.id ?? null} />
       )}
       {showImport && (
-        <ImportLeadsModal onClose={() => setShowImport(false)} origemAtiva={origemAtiva} />
+        <ImportLeadsModal
+          onClose={() => setShowImport(false)}
+          origemAtiva={negocioAtivo?.nome ?? 'Geral'}
+          negocioId={negocioAtivo?.id ?? null}
+        />
+      )}
+      {showNovaOrigem && (
+        <NovaOrigemModal
+          onClose={() => setShowNovaOrigem(false)}
+          onCreated={handleOrigemCreated}
+        />
+      )}
+      {novoNegocioOrigemId && novoNegocioOrigem && (
+        <NovoNegocioModal
+          origemId={novoNegocioOrigemId}
+          origemNome={novoNegocioOrigem.nome}
+          onClose={() => setNovoNegocioOrigemId(null)}
+          onCreated={handleNegocioCreated}
+        />
       )}
     </div>
   )
 }
-

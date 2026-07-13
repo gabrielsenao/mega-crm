@@ -8,9 +8,10 @@ import { createLead, updateLead, deleteLead } from '@/app/actions/leads'
 interface Props {
   lead?: Lead
   onClose: () => void
+  negocioId?: string | null
 }
 
-export default function LeadModal({ lead, onClose }: Props) {
+export default function LeadModal({ lead, onClose, negocioId }: Props) {
   const [loading, setLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const isEditing = !!lead
@@ -19,6 +20,7 @@ export default function LeadModal({ lead, onClose }: Props) {
     e.preventDefault()
     setLoading(true)
     const fd = new FormData(e.currentTarget)
+    if (negocioId) fd.set('negocio_id', negocioId)
     if (isEditing) {
       await updateLead(lead.id, fd)
     } else {

@@ -9,7 +9,7 @@ const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL ||
 
 export default async function Home() {
   if (DEMO_MODE) {
-    return <KanbanBoardWrapper leads={[]} email="demo@mega.com" />
+    return <KanbanBoardWrapper leads={[]} origens={[]} negocios={[]} email="demo@mega.com" />
   }
 
   const supabase = await createClient()
@@ -20,6 +20,11 @@ export default async function Home() {
     redirect('/login')
   }
 
-  const leads = await getLeads()
-  return <KanbanBoardWrapper leads={leads} email={user!.email ?? ''} />
+  const { getOrigens, getNegocios } = await import('./actions/negocios')
+  const [leads, origens, negocios] = await Promise.all([
+    getLeads(),
+    getOrigens(),
+    getNegocios(),
+  ])
+  return <KanbanBoardWrapper leads={leads} origens={origens} negocios={negocios} email={user!.email ?? ''} />
 }

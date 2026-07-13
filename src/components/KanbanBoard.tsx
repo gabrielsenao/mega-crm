@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Plus, Phone, Mail, MoreHorizontal, MessageCircle, Search, SlidersHorizontal, UserMinus, ChevronDown } from 'lucide-react'
-import { Lead, Column, COLUMNS } from '@/types'
+import { Lead, Column, COLUMNS, Negocio } from '@/types'
 import { moveLeadColumn, updateLeadDono } from '@/app/actions/leads'
 import LeadModal from './LeadModal'
 import LeadDetailPanel from './LeadDetailPanel'
@@ -139,10 +139,11 @@ function DonoButton({ lead }: { lead: Lead }) {
 interface Props {
   initialLeads: Lead[]
   onNewLead: () => void
-  origemAtiva?: string
+  negocioAtivo?: Negocio | null
+  etapas?: string[]
 }
 
-export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'InLead' }: Props) {
+export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = null, etapas = COLUMNS }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const [detailLead, setDetailLead] = useState<Lead | null>(null)
   const [search, setSearch] = useState('')
@@ -159,6 +160,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
   }, [dateOpen])
 
   const filtered = leads.filter(l => {
+    const matchNegocio = negocioAtivo ? l.negocio_id === negocioAtivo.id : true
     const q = search.toLowerCase()
     const matchSearch = !q ||
       l.nome.toLowerCase().includes(q) ||
@@ -166,10 +168,10 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
       (l.numero ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
       (l.dono ?? '').toLowerCase().includes(q)
     const matchDate = dateRangeFilter(l.created_at, dateFilter)
-    return matchSearch && matchDate
+    return matchNegocio && matchSearch && matchDate
   })
 
-  const leadsByColumn = useCallback((col: Column) =>
+  const leadsByColumn = useCallback((col: string) =>
     filtered.filter(l => l.coluna === col).sort((a, b) => a.posicao - b.posicao),
     [filtered]
   )
@@ -260,7 +262,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
         {/* Kanban */}
         <DragDropContext onDragEnd={onDragEnd}>
           <div className="flex gap-3 flex-1 overflow-x-auto pb-2">
-            {COLUMNS.map(col => {
+            {etapas.map(col => {
               const colLeads = leadsByColumn(col)
               return (
                 <div key={col} className="flex-shrink-0 w-64 flex flex-col">
@@ -371,7 +373,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, origemAtiva = 'In
       {detailLead && (
         <LeadDetailPanel
           lead={detailLead}
-          origemAtiva={origemAtiva}
+          origemAtiva={negocioAtivo?.nome ?? 'Geral'}
           onClose={() => setDetailLead(null)}
         />
       )}
