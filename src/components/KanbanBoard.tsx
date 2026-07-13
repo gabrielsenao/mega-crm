@@ -44,13 +44,13 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
     await moveLeadColumn(draggableId, destCol, destination.index)
   }
 
-  const total = leads.length
+  const total = filtered.length
 
   return (
     <>
       <div className="flex flex-col h-full">
         {/* Filtros */}
-        <div className="flex items-center gap-2 mb-4 flex-shrink-0">
+        <div className="flex items-center gap-2 mb-2 flex-shrink-0">
           <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -60,7 +60,7 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
               className="pl-8 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          {['Data', 'Tags', 'Status'].map(f => (
+          {['Data', 'Campos', 'Tags', 'Status'].map(f => (
             <button key={f} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
               {f}
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
@@ -70,10 +70,12 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
             <SlidersHorizontal size={13} />
             Mais filtros
           </button>
-          <span className="ml-auto text-sm text-gray-500 font-medium">
-            {total} oportunidade{total !== 1 ? 's' : ''} de negócio
-          </span>
         </div>
+
+        {/* Contador separado */}
+        <p className="text-sm text-gray-600 mb-3 flex-shrink-0">
+          {total.toLocaleString('pt-BR')} oportunidade{total !== 1 ? 's' : ''} de negócio
+        </p>
 
         {/* Kanban */}
         <DragDropContext onDragEnd={onDragEnd}>
@@ -83,11 +85,11 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
               return (
                 <div key={col} className="flex-shrink-0 w-64 flex flex-col">
                   {/* Cabeçalho da coluna */}
-                  <div className="flex items-center justify-between mb-2 px-0.5">
+                  <div className="flex items-center justify-between mb-1 px-0.5">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-gray-800">{col}</span>
                       <span className="text-xs bg-gray-200 text-gray-600 rounded-full px-2 py-0.5 font-medium min-w-[20px] text-center">
-                        {colLeads.length}
+                        {colLeads.length >= 1000 ? `${(colLeads.length / 1000).toFixed(1)}k` : colLeads.length}
                       </span>
                     </div>
                     <div className="flex items-center gap-1">
@@ -102,6 +104,7 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
                       </button>
                     </div>
                   </div>
+                  <p className="text-xs text-gray-400 mb-2 px-0.5">R$0</p>
 
                   {/* Coluna */}
                   <Droppable droppableId={col}>
@@ -148,26 +151,25 @@ export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
 
                                 {/* Ações + contador */}
                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                  <div className="flex items-center gap-2.5">
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="Atribuir">
                                       <UserPlus size={13} />
                                     </button>
-                                    {lead.numero && (
-                                      <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
-                                        <Phone size={13} />
-                                      </button>
-                                    )}
-                                    {lead.email && (
-                                      <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
-                                        <Mail size={13} />
-                                      </button>
-                                    )}
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="Ligar">
+                                      <Phone size={13} />
+                                    </button>
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="E-mail">
+                                      <Mail size={13} />
+                                    </button>
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()} title="Mensagem">
                                       <MessageCircle size={13} />
                                     </button>
-                                    <span className="text-xs text-gray-400">R$0</span>
+                                    <span className="text-xs text-gray-400 font-medium">R$0</span>
                                   </div>
-                                  <span className="text-xs text-gray-400">{diasDesde(lead.created_at)}</span>
+                                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                                    {diasDesde(lead.created_at)}
+                                  </div>
                                 </div>
                               </div>
                             )}
