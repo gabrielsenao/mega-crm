@@ -1,15 +1,14 @@
 export const dynamic = 'force-dynamic'
 
 import { createClient } from '@/lib/supabase/server'
-import { getLeads } from './actions/leads'
-import KanbanBoardWrapper from '@/components/KanbanBoardWrapper'
+import ContatosList from '@/components/ContatosList'
 
 const DEMO_MODE = !process.env.NEXT_PUBLIC_SUPABASE_URL ||
   process.env.NEXT_PUBLIC_SUPABASE_URL === 'your_supabase_url'
 
-export default async function Home() {
+export default async function ContatosPage() {
   if (DEMO_MODE) {
-    return <KanbanBoardWrapper leads={[]} email="demo@mega.com" />
+    return <ContatosList contatos={[]} email="demo@mega.com" />
   }
 
   const supabase = await createClient()
@@ -20,6 +19,8 @@ export default async function Home() {
     redirect('/login')
   }
 
-  const leads = await getLeads()
-  return <KanbanBoardWrapper leads={leads} email={user!.email ?? ''} />
+  const { getContatos } = await import('@/app/actions/contatos')
+  const contatos = await getContatos()
+
+  return <ContatosList contatos={contatos} email={user!.email ?? ''} />
 }
