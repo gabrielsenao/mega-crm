@@ -2,166 +2,198 @@
 
 import { useState, useCallback } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { Plus, Phone, Mail, MoreHorizontal, User } from 'lucide-react'
+import { Plus, Phone, Mail, MoreHorizontal, MessageCircle, UserPlus, Search, SlidersHorizontal } from 'lucide-react'
 import { Lead, Column, COLUMNS } from '@/types'
 import { moveLeadColumn } from '@/app/actions/leads'
 import LeadModal from './LeadModal'
 
-const COLUMN_COLORS: Record<Column, string> = {
-  Base:         'bg-gray-100 text-gray-600',
-  Agendamento:  'bg-blue-100 text-blue-700',
-  Fechados:     'bg-green-100 text-green-700',
-}
-
-const COLUMN_DOTS: Record<Column, string> = {
-  Base:         'bg-gray-400',
-  Agendamento:  'bg-blue-500',
-  Fechados:     'bg-green-500',
+function diasDesde(date: string) {
+  const d = Math.floor((Date.now() - new Date(date).getTime()) / 86400000)
+  if (d === 0) return 'hoje'
+  if (d === 1) return '1d'
+  return `${d}d`
 }
 
 interface Props {
   initialLeads: Lead[]
+  onNewLead: () => void
 }
 
-export default function KanbanBoard({ initialLeads }: Props) {
+export default function KanbanBoard({ initialLeads, onNewLead }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
-  const [modalLead, setModalLead] = useState<Lead | 'new' | null>(null)
+  const [modalLead, setModalLead] = useState<Lead | null>(null)
+  const [search, setSearch] = useState('')
+
+  const filtered = leads.filter(l =>
+    !search || l.nome.toLowerCase().includes(search.toLowerCase())
+  )
 
   const leadsByColumn = useCallback((col: Column) =>
-    leads
-      .filter(l => l.coluna === col)
-      .sort((a, b) => a.posicao - b.posicao),
-    [leads]
+    filtered.filter(l => l.coluna === col).sort((a, b) => a.posicao - b.posicao),
+    [filtered]
   )
 
   async function onDragEnd(result: DropResult) {
     const { destination, source, draggableId } = result
     if (!destination) return
     if (destination.droppableId === source.droppableId && destination.index === source.index) return
-
     const destCol = destination.droppableId as Column
-
     setLeads(prev => prev.map(l =>
       l.id === draggableId ? { ...l, coluna: destCol, posicao: destination.index } : l
     ))
-
     await moveLeadColumn(draggableId, destCol, destination.index)
   }
 
+  const total = leads.length
+
   return (
     <>
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex gap-4 h-full overflow-x-auto pb-4">
-          {COLUMNS.map(col => {
-            const colLeads = leadsByColumn(col)
-            return (
-              <div key={col} className="flex-shrink-0 w-72 flex flex-col">
-                {/* Column header */}
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${COLUMN_DOTS[col]}`} />
-                    <span className="text-sm font-semibold text-gray-700">{col}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${COLUMN_COLORS[col]}`}>
-                      {colLeads.length}
-                    </span>
-                  </div>
-                  {col === 'Base' && (
-                    <button
-                      onClick={() => setModalLead('new')}
-                      className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-200 text-gray-500 transition-colors"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Droppable */}
-                <Droppable droppableId={col}>
-                  {(provided, snapshot) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className={`flex-1 rounded-xl p-2 space-y-2 min-h-32 transition-colors scrollbar-thin overflow-y-auto ${
-                        snapshot.isDraggingOver ? 'bg-blue-50' : 'bg-gray-100/60'
-                      }`}
-                    >
-                      {colLeads.map((lead, index) => (
-                        <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => setModalLead(lead)}
-                              className={`bg-white rounded-xl p-3.5 cursor-pointer border transition-all ${
-                                snapshot.isDragging
-                                  ? 'shadow-lg border-blue-200 rotate-1'
-                                  : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'
-                              }`}
-                            >
-                              {/* Avatar + nome */}
-                              <div className="flex items-start gap-2.5">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                                  <span className="text-white text-xs font-semibold">
-                                    {lead.nome.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-semibold text-gray-900 truncate">{lead.nome}</p>
-                                  {lead.numero && (
-                                    <p className="text-xs text-gray-400 mt-0.5">{lead.numero}</p>
-                                  )}
-                                </div>
-                                <MoreHorizontal size={14} className="text-gray-300 flex-shrink-0 mt-0.5" />
-                              </div>
-
-                              {/* Info */}
-                              {lead.informacoes_adicionais && (
-                                <p className="text-xs text-gray-500 mt-2.5 line-clamp-2 leading-relaxed">
-                                  {lead.informacoes_adicionais}
-                                </p>
-                              )}
-
-                              {/* Icons */}
-                              <div className="flex items-center gap-2 mt-3 pt-2.5 border-t border-gray-50">
-                                {lead.numero && (
-                                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                                    <Phone size={11} /> <span className="hidden sm:inline">Ligar</span>
-                                  </span>
-                                )}
-                                {lead.email && (
-                                  <span className="flex items-center gap-1 text-xs text-gray-400">
-                                    <Mail size={11} /> <span className="hidden sm:inline">Email</span>
-                                  </span>
-                                )}
-                                <span className="ml-auto text-xs text-gray-300">
-                                  {new Date(lead.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-
-                      {colLeads.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-8 text-gray-400">
-                          <User size={24} className="mb-2 opacity-30" />
-                          <p className="text-xs">Nenhum lead</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </Droppable>
-              </div>
-            )
-          })}
+      <div className="flex flex-col h-full">
+        {/* Filtros */}
+        <div className="flex items-center gap-2 mb-4 flex-shrink-0">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar..."
+              className="pl-8 pr-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg w-44 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          {['Data', 'Tags', 'Status'].map(f => (
+            <button key={f} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+              {f}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+          ))}
+          <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+            <SlidersHorizontal size={13} />
+            Mais filtros
+          </button>
+          <span className="ml-auto text-sm text-gray-500 font-medium">
+            {total} oportunidade{total !== 1 ? 's' : ''} de negócio
+          </span>
         </div>
-      </DragDropContext>
+
+        {/* Kanban */}
+        <DragDropContext onDragEnd={onDragEnd}>
+          <div className="flex gap-3 flex-1 overflow-x-auto pb-2">
+            {COLUMNS.map(col => {
+              const colLeads = leadsByColumn(col)
+              return (
+                <div key={col} className="flex-shrink-0 w-64 flex flex-col">
+                  {/* Cabeçalho da coluna */}
+                  <div className="flex items-center justify-between mb-2 px-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-800">{col}</span>
+                      <span className="text-xs bg-gray-200 text-gray-600 rounded-full px-2 py-0.5 font-medium min-w-[20px] text-center">
+                        {colLeads.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={onNewLead}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors"
+                      >
+                        <Plus size={14} />
+                      </button>
+                      <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors">
+                        <MoreHorizontal size={14} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Coluna */}
+                  <Droppable droppableId={col}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`flex-1 rounded-xl p-1.5 space-y-2 min-h-24 overflow-y-auto scrollbar-thin transition-colors ${
+                          snapshot.isDraggingOver ? 'bg-blue-50/80' : 'bg-gray-100/70'
+                        }`}
+                      >
+                        {colLeads.map((lead, index) => (
+                          <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.draggableProps}
+                                {...provided.dragHandleProps}
+                                onClick={() => setModalLead(lead)}
+                                className={`bg-white rounded-lg p-3 cursor-pointer border transition-all ${
+                                  snapshot.isDragging
+                                    ? 'shadow-lg border-blue-200 rotate-1'
+                                    : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'
+                                }`}
+                              >
+                                {/* Tag */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded font-medium">
+                                    {lead.informacoes_adicionais?.split(' ')[0] ?? 'Lead'}
+                                  </span>
+                                </div>
+
+                                {/* Nome + avatar */}
+                                <div className="flex items-start justify-between gap-2 mb-3">
+                                  <p className="text-sm font-semibold text-gray-900 leading-snug flex-1">
+                                    {lead.nome}
+                                  </p>
+                                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center flex-shrink-0">
+                                    <span className="text-white text-xs font-bold">
+                                      {lead.nome.charAt(0).toUpperCase()}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Ações + contador */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                      <UserPlus size={13} />
+                                    </button>
+                                    {lead.numero && (
+                                      <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                        <Phone size={13} />
+                                      </button>
+                                    )}
+                                    {lead.email && (
+                                      <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                        <Mail size={13} />
+                                      </button>
+                                    )}
+                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                      <MessageCircle size={13} />
+                                    </button>
+                                    <span className="text-xs text-gray-400">R$0</span>
+                                  </div>
+                                  <span className="text-xs text-gray-400">{diasDesde(lead.created_at)}</span>
+                                </div>
+                              </div>
+                            )}
+                          </Draggable>
+                        ))}
+                        {provided.placeholder}
+
+                        <button
+                          onClick={onNewLead}
+                          className="w-full py-2 text-xs text-gray-400 hover:text-gray-600 hover:bg-white/60 rounded-lg transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Plus size={12} /> Adicionar negócio
+                        </button>
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              )
+            })}
+          </div>
+        </DragDropContext>
+      </div>
 
       {modalLead && (
         <LeadModal
-          lead={modalLead === 'new' ? undefined : modalLead}
+          lead={modalLead}
           onClose={() => setModalLead(null)}
         />
       )}
