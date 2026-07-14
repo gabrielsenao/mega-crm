@@ -34,8 +34,10 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
     initialOrigens[0]?.id ?? null
   )
 
-  // Negócio selecionado (null = todos os leads sem negocio)
-  const [negocioAtivo, setNegocioAtivo] = useState<Negocio | null>(null)
+  // Negócio selecionado — inicia com o primeiro disponível
+  const [negocioAtivo, setNegocioAtivo] = useState<Negocio | null>(
+    initialNegocios[0] ?? null
+  )
 
   const etapasAtivas = negocioAtivo?.etapas ?? COLUMNS
 
