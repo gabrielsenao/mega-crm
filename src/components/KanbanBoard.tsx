@@ -390,10 +390,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
                                     <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
                                       <Phone size={13} />
                                     </button>
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
-                                      <Mail size={13} />
-                                    </button>
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+<button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
                                       <MessageCircle size={13} />
                                     </button>
                                     <span className="text-xs text-gray-400 font-medium">R$0</span>
