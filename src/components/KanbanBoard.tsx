@@ -148,6 +148,8 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
   const [detailLead, setDetailLead] = useState<Lead | null>(null)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [dateOpen, setDateOpen] = useState(false)
   const dateRef = useRef<HTMLDivElement>(null)
 
@@ -159,6 +161,14 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
     return () => document.removeEventListener('mousedown', onClick)
   }, [dateOpen])
 
+  function clearDateFilter() {
+    setDateFilter('')
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  const hasDateFilter = !!(dateFilter || dateFrom || dateTo)
+
   const filtered = leads.filter(l => {
     const matchNegocio = negocioAtivo ? l.negocio_id === negocioAtivo.id : true
     const q = search.toLowerCase()
@@ -167,7 +177,14 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
       (l.email ?? '').toLowerCase().includes(q) ||
       (l.numero ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
       (l.dono ?? '').toLowerCase().includes(q)
-    const matchDate = dateRangeFilter(l.created_at, dateFilter)
+    let matchDate = true
+    if (dateFilter) {
+      matchDate = dateRangeFilter(l.created_at, dateFilter)
+    } else if (dateFrom || dateTo) {
+      const d = new Date(l.created_at)
+      if (dateFrom) matchDate = matchDate && d >= new Date(dateFrom + 'T00:00:00')
+      if (dateTo)   matchDate = matchDate && d <= new Date(dateTo   + 'T23:59:59')
+    }
     return matchNegocio && matchSearch && matchDate
   })
 
@@ -189,7 +206,9 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
 
   const dateLabel = dateFilter
     ? DATE_PRESETS.find(p => p.value === dateFilter)?.label ?? 'Data'
-    : 'Data'
+    : (dateFrom || dateTo)
+      ? `${dateFrom ? new Date(dateFrom + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '...'} → ${dateTo ? new Date(dateTo + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '...'}`
+      : 'Data'
 
   const total = filtered.length
 
@@ -213,8 +232,8 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
           <div ref={dateRef} className="relative">
             <button
               onClick={() => setDateOpen(!dateOpen)}
-              className={`flex items-center gap-1 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
-                dateFilter
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+                hasDateFilter
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
               }`}
@@ -223,23 +242,59 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
               <ChevronDown size={11} />
             </button>
             {dateOpen && (
-              <div className="absolute top-9 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-44">
-                <button
-                  onClick={() => { setDateFilter(''); setDateOpen(false) }}
-                  className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${!dateFilter ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
-                >
-                  Qualquer data
-                </button>
-                <div className="h-px bg-gray-100 my-1" />
-                {DATE_PRESETS.map(p => (
+              <div className="absolute top-9 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-xl py-2 w-64">
+                {/* Limpar */}
+                <div className="px-3 pb-2 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Data de inscrição</p>
+                  {hasDateFilter && (
+                    <button onClick={() => { clearDateFilter() }} className="text-xs text-blue-500 hover:text-blue-700">
+                      Limpar
+                    </button>
+                  )}
+                </div>
+
+                {/* Intervalo personalizado */}
+                <div className="px-3 pb-3 space-y-2">
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">De</p>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={e => { setDateFrom(e.target.value); setDateFilter('') }}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 mb-1">Até</p>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={e => { setDateTo(e.target.value); setDateFilter('') }}
+                      className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="h-px bg-gray-100 mx-3 mb-1" />
+
+                {/* Atalhos */}
+                <div className="px-1">
                   <button
-                    key={p.value}
-                    onClick={() => { setDateFilter(p.value); setDateOpen(false) }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${dateFilter === p.value ? 'text-blue-600 font-medium' : 'text-gray-700'}`}
+                    onClick={() => { clearDateFilter(); setDateOpen(false) }}
+                    className={`w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-gray-50 transition-colors ${!hasDateFilter ? 'text-blue-600 font-medium' : 'text-gray-600'}`}
                   >
-                    {p.label}
+                    Qualquer data
                   </button>
-                ))}
+                  {DATE_PRESETS.map(p => (
+                    <button
+                      key={p.value}
+                      onClick={() => { setDateFilter(p.value); setDateFrom(''); setDateTo(''); setDateOpen(false) }}
+                      className={`w-full text-left px-3 py-1.5 text-sm rounded-lg hover:bg-gray-50 transition-colors ${dateFilter === p.value ? 'text-blue-600 font-medium' : 'text-gray-600'}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Plus, Trash2, Settings } from 'lucide-react'
+import { X, Plus, Trash2, Settings, GripVertical } from 'lucide-react'
 import { updateNegocio } from '@/app/actions/negocios'
 import { Negocio } from '@/types'
 
@@ -11,38 +11,56 @@ interface Props {
   onUpdated: (negocio: Negocio) => void
 }
 
-type Tab = 'geral' | 'motivos'
+type Tab = 'geral' | 'etapas' | 'motivos'
 
 export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Props) {
   const [tab, setTab] = useState<Tab>('geral')
   const [nome, setNome] = useState(negocio.nome)
-  const [motivos, setMotivos] = useState<string[]>(
-    (negocio as any).motivos_perda ?? []
-  )
+  const [etapas, setEtapas] = useState<string[]>(negocio.etapas)
+  const [novaEtapa, setNovaEtapa] = useState('')
+  const [motivos, setMotivos] = useState<string[]>((negocio as any).motivos_perda ?? [])
   const [novoMotivo, setNovoMotivo] = useState('')
   const [saving, setSaving] = useState(false)
   const [erro, setErro] = useState('')
 
+  // ── Etapas ──
+  function addEtapa() {
+    const t = novaEtapa.trim()
+    if (!t || etapas.includes(t)) return
+    setEtapas(prev => [...prev, t])
+    setNovaEtapa('')
+  }
+  function removeEtapa(i: number) {
+    if (etapas.length <= 1) return
+    setEtapas(prev => prev.filter((_, idx) => idx !== i))
+  }
+  function renameEtapa(i: number, val: string) {
+    setEtapas(prev => prev.map((e, idx) => idx === i ? val : e))
+  }
+
+  // ── Motivos ──
   function addMotivo() {
     const t = novoMotivo.trim()
     if (!t || motivos.includes(t)) return
     setMotivos(prev => [...prev, t])
     setNovoMotivo('')
   }
-
   function removeMotivo(i: number) {
     setMotivos(prev => prev.filter((_, idx) => idx !== i))
   }
 
   async function handleSave() {
     if (!nome.trim()) { setErro('Informe o nome do negócio'); return }
+    if (etapas.some(e => !e.trim())) { setErro('Todas as etapas precisam ter nome'); return }
     setSaving(true)
     try {
+      const etapasLimpas = etapas.map(e => e.trim()).filter(Boolean)
       await updateNegocio(negocio.id, {
         nome: nome.trim(),
+        etapas: etapasLimpas,
         motivos_perda: motivos,
       })
-      onUpdated({ ...negocio, nome: nome.trim(), motivos_perda: motivos } as any)
+      onUpdated({ ...negocio, nome: nome.trim(), etapas: etapasLimpas, motivos_perda: motivos } as any)
       onClose()
     } catch {
       setErro('Erro ao salvar. Tente novamente.')
@@ -51,16 +69,22 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
     }
   }
 
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'geral',   label: 'Geral' },
+    { key: 'etapas',  label: 'Etapas e atividades' },
+    { key: 'motivos', label: 'Motivo de Perda' },
+  ]
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden"
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl mx-4 overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
         style={{ maxHeight: '90vh' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-center gap-2">
             <Settings size={16} className="text-violet-500" />
             <h2 className="text-base font-bold text-gray-900">{negocio.nome}</h2>
@@ -71,15 +95,12 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-100 px-6">
-          {([
-            { key: 'geral',   label: 'Geral' },
-            { key: 'motivos', label: 'Motivo de Perda' },
-          ] as const).map(t => (
+        <div className="flex border-b border-gray-100 px-6 flex-shrink-0">
+          {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 tab === t.key
                   ? 'border-violet-600 text-violet-700'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -91,7 +112,7 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
         </div>
 
         {/* Conteúdo */}
-        <div className="px-6 py-5 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 160px)' }}>
+        <div className="px-6 py-5 overflow-y-auto flex-1">
 
           {/* ── Geral ── */}
           {tab === 'geral' && (
@@ -110,6 +131,58 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
             </div>
           )}
 
+          {/* ── Etapas e atividades ── */}
+          {tab === 'etapas' && (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-500">
+                Defina as etapas do funil deste negócio. A ordem aqui é a ordem exibida no kanban.
+              </p>
+
+              <div className="space-y-2">
+                {etapas.map((etapa, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2">
+                    <GripVertical size={13} className="text-gray-300 flex-shrink-0" />
+                    <input
+                      value={etapa}
+                      onChange={e => renameEtapa(i, e.target.value)}
+                      className="flex-1 text-sm text-gray-800 bg-transparent focus:outline-none focus:ring-1 focus:ring-violet-400 rounded px-1"
+                    />
+                    <button
+                      onClick={() => removeEtapa(i)}
+                      disabled={etapas.length <= 1}
+                      className="text-gray-300 hover:text-red-500 disabled:opacity-20 transition-colors flex-shrink-0"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2">
+                <input
+                  value={novaEtapa}
+                  onChange={e => setNovaEtapa(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addEtapa() } }}
+                  placeholder="Nova etapa..."
+                  className="flex-1 px-3 py-2 text-sm border border-dashed border-gray-300 rounded-xl focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
+                />
+                <button
+                  onClick={addEtapa}
+                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors"
+                >
+                  <Plus size={15} />
+                </button>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mt-2">
+                <p className="text-xs text-amber-700 font-medium">Atenção</p>
+                <p className="text-xs text-amber-600 mt-0.5">
+                  Renomear ou remover etapas não move os leads — eles continuam na etapa original até serem movidos manualmente.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* ── Motivo de Perda ── */}
           {tab === 'motivos' && (
             <div className="space-y-4">
@@ -117,7 +190,6 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
                 Motivos de perda são usados quando um lead é marcado como perdido no funil.
               </p>
 
-              {/* Lista */}
               <div className="space-y-2">
                 {motivos.length === 0 ? (
                   <p className="text-sm text-gray-400 italic py-2">Nenhum motivo cadastrado ainda.</p>
@@ -125,10 +197,7 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
                   motivos.map((m, i) => (
                     <div key={i} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-2.5">
                       <span className="flex-1 text-sm text-gray-800">{m}</span>
-                      <button
-                        onClick={() => removeMotivo(i)}
-                        className="text-gray-300 hover:text-red-500 transition-colors"
-                      >
+                      <button onClick={() => removeMotivo(i)} className="text-gray-300 hover:text-red-500 transition-colors">
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -136,7 +205,6 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
                 )}
               </div>
 
-              {/* Adicionar */}
               <div className="flex gap-2">
                 <input
                   value={novoMotivo}
@@ -145,10 +213,7 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
                   placeholder="Ex: Sem interesse, Sem verba, Não qualificado..."
                   className="flex-1 px-3 py-2 text-sm border border-dashed border-gray-300 rounded-xl focus:outline-none focus:border-violet-400 focus:ring-1 focus:ring-violet-400"
                 />
-                <button
-                  onClick={addMotivo}
-                  className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors"
-                >
+                <button onClick={addMotivo} className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl transition-colors">
                   <Plus size={15} />
                 </button>
               </div>
@@ -159,7 +224,7 @@ export default function ConfigNegocioModal({ negocio, onClose, onUpdated }: Prop
         </div>
 
         {/* Footer */}
-        <div className="flex gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
+        <div className="flex gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0">
           <button
             onClick={onClose}
             className="flex-1 py-2.5 text-sm text-gray-600 border border-gray-200 bg-white rounded-xl hover:bg-gray-50 transition-colors"

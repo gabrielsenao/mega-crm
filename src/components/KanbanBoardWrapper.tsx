@@ -180,23 +180,6 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
               </div>
             )}
 
-            {/* Etapas do negócio ativo */}
-            {negocioAtivo && (
-              <div className="mt-5">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-2">Etapas</p>
-                <div className="space-y-0.5 ml-1">
-                  {etapasAtivas.map(etapa => {
-                    const count = leads.filter(l => l.negocio_id === negocioAtivo.id && l.coluna === etapa).length
-                    return (
-                      <div key={etapa} className="flex items-center justify-between px-2 py-1 rounded-lg text-xs text-gray-500">
-                        <span>{etapa}</span>
-                        <span className="text-[10px] bg-gray-100 text-gray-500 rounded-full px-1.5 py-0.5">{count}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         </aside>
 
