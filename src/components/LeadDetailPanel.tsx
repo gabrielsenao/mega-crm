@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Phone, Mail, MessageCircle, Calendar, Plus, ChevronLeft, ChevronRight, Edit2, Trash2, Check, StickyNote, CheckSquare, Square, Clock } from 'lucide-react'
 import { Lead, Nota, TarefaLead, TipoTarefa } from '@/types'
 import { updateLead, deleteLead, addNota, deleteNota } from '@/app/actions/leads'

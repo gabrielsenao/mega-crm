@@ -8,8 +8,9 @@ import LeadModal from './LeadModal'
 import ImportLeadsModal from './ImportLeadsModal'
 import NovaOrigemModal from './NovaOrigemModal'
 import NovoNegocioModal from './NovoNegocioModal'
-import { ChevronDown, ChevronRight, Plus, LayoutGrid, Building2, Settings, Download, RefreshCw } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, LayoutGrid, Building2, Settings, Download, RefreshCw, Home } from 'lucide-react'
 import ConfigNegocioModal from './ConfigNegocioModal'
+import DashboardHome from './DashboardHome'
 
 interface Props {
   leads: Lead[]
@@ -34,10 +35,8 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
     initialOrigens[0]?.id ?? null
   )
 
-  // Negócio selecionado — inicia com o primeiro disponível
-  const [negocioAtivo, setNegocioAtivo] = useState<Negocio | null>(
-    initialNegocios[0] ?? null
-  )
+  // Negócio selecionado (null = dashboard home)
+  const [negocioAtivo, setNegocioAtivo] = useState<Negocio | null>(null)
 
   const etapasAtivas = negocioAtivo?.etapas ?? COLUMNS
 
@@ -92,6 +91,19 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
         {/* ── Sidebar ── */}
         <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-y-auto">
           <div className="px-3 pt-3 pb-4">
+
+            {/* Início */}
+            <button
+              onClick={() => setNegocioAtivo(null)}
+              className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs mb-3 transition-colors ${
+                negocioAtivo === null
+                  ? 'bg-violet-50 text-violet-700 font-semibold'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Home size={12} className="flex-shrink-0" />
+              Início
+            </button>
 
             {/* Cabeçalho Origens */}
             <div className="flex items-center justify-between mb-2">
@@ -186,61 +198,67 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
         </aside>
 
         {/* ── Conteúdo principal ── */}
-        <main className="flex-1 overflow-hidden flex flex-col px-5 py-4">
-          <div className="mb-3 flex-shrink-0 flex items-center justify-between">
-            <div>
-              {negocioAtivo ? (
-                <>
+        <main className="flex-1 overflow-hidden flex flex-col">
+          {negocioAtivo ? (
+            <>
+              <div className="px-5 pt-4 pb-3 flex-shrink-0 flex items-center justify-between">
+                <div>
                   <p className="text-xs text-gray-400 uppercase tracking-wide">
                     {origemDoNegocioAtivo?.nome ?? 'Negócios'}
                   </p>
                   <h1 className="text-xl font-bold text-gray-900">{negocioAtivo.nome}</h1>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide">Visão geral</p>
-                  <h1 className="text-xl font-bold text-gray-900">
-                    {origens.length === 0 ? 'Crie uma origem para começar' : 'Selecione um negócio'}
-                  </h1>
-                </>
-              )}
-            </div>
-
-            {/* Ações do negócio */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => { setRefreshKey(k => k + 1); window.location.reload() }}
-                title="Recarregar"
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-              >
-                <RefreshCw size={15} />
-              </button>
-              <button
-                onClick={exportLeadsCSV}
-                title="Exportar leads"
-                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-              >
-                <Download size={15} />
-              </button>
-              {negocioAtivo && (
-                <button
-                  onClick={() => setShowConfig(true)}
-                  title="Configurações do negócio"
-                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
-                >
-                  <Settings size={15} />
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <KanbanBoard
-              initialLeads={leads}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setNegocioAtivo(null)}
+                    title="Início"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                  >
+                    <Home size={15} />
+                  </button>
+                  <button
+                    onClick={() => { setRefreshKey(k => k + 1); window.location.reload() }}
+                    title="Recarregar"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                  >
+                    <RefreshCw size={15} />
+                  </button>
+                  <button
+                    onClick={exportLeadsCSV}
+                    title="Exportar leads"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                  >
+                    <Download size={15} />
+                  </button>
+                  <button
+                    onClick={() => setShowConfig(true)}
+                    title="Configurações do negócio"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                  >
+                    <Settings size={15} />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden px-5 pb-4">
+                <KanbanBoard
+                  initialLeads={leads}
+                  onNewLead={() => setShowNewLead(true)}
+                  negocioAtivo={negocioAtivo}
+                  etapas={etapasAtivas}
+                />
+              </div>
+            </>
+          ) : (
+            <DashboardHome
+              leads={leads}
+              negocios={negocios}
+              origens={origens}
+              email={email}
               onNewLead={() => setShowNewLead(true)}
-              negocioAtivo={negocioAtivo}
-              etapas={etapasAtivas}
+              onImport={() => setShowImport(true)}
+              onSelectNegocio={setNegocioAtivo}
             />
-          </div>
+          )}
         </main>
       </div>
 
