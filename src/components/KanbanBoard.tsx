@@ -667,13 +667,13 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
                                     {lead.informacoes_adicionais?.split(',')[0]?.trim() ?? 'Lead'}
                                   </span>
                                   {/* Avatar que faz fade e vira checkbox no hover */}
-                                  <div className="relative w-8 h-8 flex-shrink-0 ml-1">
-                                    <div className={`absolute inset-0 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center transition-all duration-200 ${
+                                  <div className="relative w-9 h-9 flex-shrink-0 ml-1">
+                                    <div className={`absolute inset-0 rounded-lg bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center transition-all duration-200 ${
                                       selected.has(lead.id)
                                         ? 'opacity-0 scale-90'
                                         : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-90'
                                     }`}>
-                                      <span className="text-white text-xs font-bold leading-none">
+                                      <span className="text-white text-sm font-bold leading-none">
                                         {lead.nome.charAt(0).toUpperCase()}
                                       </span>
                                     </div>
@@ -682,10 +682,10 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
                                       className={`absolute inset-0 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${
                                         selected.has(lead.id)
                                           ? 'bg-violet-600 border-violet-600 opacity-100 scale-100'
-                                          : 'bg-white border-gray-300 hover:border-violet-400 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'
+                                          : 'bg-gray-100 border-gray-200 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'
                                       }`}
                                     >
-                                      {selected.has(lead.id) && <Check size={13} className="text-white" strokeWidth={3} />}
+                                      {selected.has(lead.id) && <Check size={14} className="text-white" strokeWidth={3} />}
                                     </button>
                                   </div>
                                 </div>
