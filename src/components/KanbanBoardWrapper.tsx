@@ -8,7 +8,8 @@ import LeadModal from './LeadModal'
 import ImportLeadsModal from './ImportLeadsModal'
 import NovaOrigemModal from './NovaOrigemModal'
 import NovoNegocioModal from './NovoNegocioModal'
-import { ChevronDown, ChevronRight, Plus, LayoutGrid, Building2, Settings, Download, RefreshCw, Home } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, LayoutGrid, Building2, Settings, Download, RefreshCw, Home, MoreHorizontal, Trash2 } from 'lucide-react'
+import { deleteOrigem } from '@/app/actions/negocios'
 import ConfigNegocioModal from './ConfigNegocioModal'
 import DashboardHome from './DashboardHome'
 
@@ -29,6 +30,7 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
   const [novoNegocioOrigemId, setNovoNegocioOrigemId] = useState<string | null>(null)
   const [showConfig, setShowConfig] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [origemMenuAberto, setOrigemMenuAberto] = useState<string | null>(null)
 
   // Origem expandida no sidebar
   const [origemExpandida, setOrigemExpandida] = useState<string | null>(
@@ -39,6 +41,16 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
   const [negocioAtivo, setNegocioAtivo] = useState<Negocio | null>(null)
 
   const etapasAtivas = negocioAtivo?.etapas ?? COLUMNS
+
+  async function handleDeleteOrigem(id: string) {
+    await deleteOrigem(id)
+    setOrigens(prev => prev.filter(o => o.id !== id))
+    setNegocios(prev => prev.filter(n => n.origem_id !== id))
+    if (negocioAtivo && negocios.find(n => n.origem_id === id && n.id === negocioAtivo.id)) {
+      setNegocioAtivo(null)
+    }
+    setOrigemMenuAberto(null)
+  }
 
   function handleOrigemCreated(orig: Origem) {
     setOrigens(prev => [...prev, orig])
@@ -122,7 +134,7 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
                   return (
                     <div key={origem.id}>
                       {/* Linha da origem */}
-                      <div className="flex items-center gap-1 group">
+                      <div className="flex items-center gap-1 group relative">
                         <button
                           onClick={() => setOrigemExpandida(expanded ? null : origem.id)}
                           className="flex items-center gap-1.5 flex-1 px-1.5 py-1.5 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors text-left"
@@ -141,6 +153,26 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
                         >
                           <Plus size={11} />
                         </button>
+                        <button
+                          onClick={() => setOrigemMenuAberto(origemMenuAberto === origem.id ? null : origem.id)}
+                          className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-all flex-shrink-0"
+                        >
+                          <MoreHorizontal size={11} />
+                        </button>
+                        {origemMenuAberto === origem.id && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setOrigemMenuAberto(null)} />
+                            <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px]">
+                              <button
+                                onClick={() => handleDeleteOrigem(origem.id)}
+                                className="flex items-center gap-2 w-full px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 size={11} />
+                                Excluir origem
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Negócios da origem */}
