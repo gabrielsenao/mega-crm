@@ -85,7 +85,7 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <Navbar email={email} onNewLead={() => setShowNewLead(true)} onImportLeads={() => setShowImport(true)} />
+      <Navbar email={email} onHome={() => setNegocioAtivo(null)} onNewLead={() => setShowNewLead(true)} onImportLeads={() => setShowImport(true)} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── Sidebar ── */}

@@ -7,12 +7,13 @@ import { logout } from '@/app/actions/leads'
 
 interface Props {
   email: string
+  onHome?: () => void
   onNewLead?: () => void
   onNewContact?: () => void
   onImportLeads?: () => void
 }
 
-export default function Navbar({ email, onNewLead, onNewContact, onImportLeads }: Props) {
+export default function Navbar({ email, onHome, onNewLead, onNewContact, onImportLeads }: Props) {
   const pathname = usePathname()
   const isContatos = pathname === '/contatos'
 
@@ -25,12 +26,15 @@ export default function Navbar({ email, onNewLead, onNewContact, onImportLeads }
     <header className="bg-white border-b border-gray-200 flex-shrink-0">
       <div className="flex items-center px-6 h-14 gap-4">
         {/* Logo */}
-        <div className="flex items-center gap-2.5">
+        <button
+          onClick={onHome}
+          className="flex items-center gap-2.5 hover:opacity-80 transition-opacity"
+        >
           <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
             <span className="text-white font-bold text-sm">M</span>
           </div>
           <span className="font-bold text-gray-900 text-base">Mega</span>
-        </div>
+        </button>
 
         {/* Tabs */}
         <nav className="flex items-center gap-1 ml-4">
