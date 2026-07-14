@@ -8,7 +8,8 @@ import LeadModal from './LeadModal'
 import ImportLeadsModal from './ImportLeadsModal'
 import NovaOrigemModal from './NovaOrigemModal'
 import NovoNegocioModal from './NovoNegocioModal'
-import { ChevronDown, ChevronRight, Plus, LayoutGrid, Building2, MoreHorizontal } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, LayoutGrid, Building2, Settings, Download, RefreshCw } from 'lucide-react'
+import ConfigNegocioModal from './ConfigNegocioModal'
 
 interface Props {
   leads: Lead[]
@@ -25,6 +26,8 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
   const [showImport, setShowImport] = useState(false)
   const [showNovaOrigem, setShowNovaOrigem] = useState(false)
   const [novoNegocioOrigemId, setNovoNegocioOrigemId] = useState<string | null>(null)
+  const [showConfig, setShowConfig] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Origem expandida no sidebar
   const [origemExpandida, setOrigemExpandida] = useState<string | null>(
@@ -44,6 +47,31 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
   function handleNegocioCreated(neg: Negocio) {
     setNegocios(prev => [...prev, neg])
     setNegocioAtivo(neg)
+  }
+
+  function handleNegocioUpdated(neg: Negocio) {
+    setNegocios(prev => prev.map(n => n.id === neg.id ? neg : n))
+    setNegocioAtivo(neg)
+  }
+
+  function exportLeadsCSV() {
+    const leadsNegocio = negocioAtivo
+      ? leads.filter(l => l.negocio_id === negocioAtivo.id)
+      : leads
+    const header = 'Nome,Email,Número,Etapa,Tags,Dono'
+    const rows = leadsNegocio.map(l =>
+      [l.nome, l.email ?? '', l.numero ?? '', l.coluna, l.informacoes_adicionais ?? '', l.dono ?? '']
+        .map(v => `"${String(v).replace(/"/g, '""')}"`)
+        .join(',')
+    )
+    const csv = [header, ...rows].join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `leads-${negocioAtivo?.nome ?? 'todos'}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const origemDoNegocioAtivo = negocioAtivo
@@ -174,22 +202,51 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
 
         {/* ── Conteúdo principal ── */}
         <main className="flex-1 overflow-hidden flex flex-col px-5 py-4">
-          <div className="mb-3 flex-shrink-0">
-            {negocioAtivo ? (
-              <>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">
-                  {origemDoNegocioAtivo?.nome ?? 'Negócios'}
-                </p>
-                <h1 className="text-xl font-bold text-gray-900">{negocioAtivo.nome}</h1>
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Visão geral</p>
-                <h1 className="text-xl font-bold text-gray-900">
-                  {origens.length === 0 ? 'Crie uma origem para começar' : 'Selecione um negócio'}
-                </h1>
-              </>
-            )}
+          <div className="mb-3 flex-shrink-0 flex items-center justify-between">
+            <div>
+              {negocioAtivo ? (
+                <>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">
+                    {origemDoNegocioAtivo?.nome ?? 'Negócios'}
+                  </p>
+                  <h1 className="text-xl font-bold text-gray-900">{negocioAtivo.nome}</h1>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide">Visão geral</p>
+                  <h1 className="text-xl font-bold text-gray-900">
+                    {origens.length === 0 ? 'Crie uma origem para começar' : 'Selecione um negócio'}
+                  </h1>
+                </>
+              )}
+            </div>
+
+            {/* Ações do negócio */}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => { setRefreshKey(k => k + 1); window.location.reload() }}
+                title="Recarregar"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <RefreshCw size={15} />
+              </button>
+              <button
+                onClick={exportLeadsCSV}
+                title="Exportar leads"
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <Download size={15} />
+              </button>
+              {negocioAtivo && (
+                <button
+                  onClick={() => setShowConfig(true)}
+                  title="Configurações do negócio"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  <Settings size={15} />
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex-1 overflow-hidden">
             <KanbanBoard
@@ -225,6 +282,13 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
           origemNome={novoNegocioOrigem.nome}
           onClose={() => setNovoNegocioOrigemId(null)}
           onCreated={handleNegocioCreated}
+        />
+      )}
+      {showConfig && negocioAtivo && (
+        <ConfigNegocioModal
+          negocio={negocioAtivo}
+          onClose={() => setShowConfig(false)}
+          onUpdated={handleNegocioUpdated}
         />
       )}
     </div>

@@ -58,6 +58,12 @@ export async function createNegocio(nome: string, origemId: string, etapas: stri
   return data
 }
 
+export async function updateNegocio(id: string, fields: { nome?: string; etapas?: string[]; motivos_perda?: string[] }) {
+  const supabase = await createClient()
+  await supabase.from('negocios').update(fields).eq('id', id)
+  revalidatePath('/')
+}
+
 export async function deleteNegocio(id: string) {
   const supabase = await createClient()
   await supabase.from('negocios').delete().eq('id', id)
