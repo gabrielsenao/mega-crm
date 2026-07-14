@@ -160,6 +160,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
 
   // Filtros de kanban
   const [openFilter, setOpenFilter] = useState<'status' | 'dono' | 'tags' | null>(null)
+  const [colMenuAberto, setColMenuAberto] = useState<string | null>(null)
   const [filterStatusSet, setFilterStatusSet] = useState<Set<string>>(new Set(['ativo']))
   const [filterDonoSet, setFilterDonoSet] = useState<Set<string>>(new Set())
   const [filterTagSet, setFilterTagSet] = useState<Set<string>>(new Set())
@@ -587,9 +588,49 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
                       <button onClick={onNewLead} className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors">
                         <Plus size={14} />
                       </button>
-                      <button className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors">
-                        <MoreHorizontal size={14} />
-                      </button>
+                      <div className="relative">
+                        <button
+                          onClick={() => setColMenuAberto(colMenuAberto === col ? null : col)}
+                          className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 transition-colors"
+                        >
+                          <MoreHorizontal size={14} />
+                        </button>
+                        {colMenuAberto === col && (
+                          <>
+                            <div className="fixed inset-0 z-10" onClick={() => setColMenuAberto(null)} />
+                            <div className="absolute right-0 top-7 z-20 bg-white border border-gray-200 rounded-xl shadow-xl py-1 w-52">
+                              <button
+                                onClick={() => {
+                                  setSelected(prev => {
+                                    const next = new Set(prev)
+                                    colLeads.forEach(l => next.add(l.id))
+                                    return next
+                                  })
+                                  setColMenuAberto(null)
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2"
+                              >
+                                <Check size={13} className="text-gray-400" />
+                                Selecionar todos ({colLeads.length.toLocaleString('pt-BR')})
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelected(prev => {
+                                    const next = new Set(prev)
+                                    colLeads.forEach(l => next.delete(l.id))
+                                    return next
+                                  })
+                                  setColMenuAberto(null)
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2 text-gray-500"
+                              >
+                                <X size={13} className="text-gray-400" />
+                                Desselecionar desta etapa
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <p className="text-xs text-gray-400 mb-2 px-0.5">R$0</p>
