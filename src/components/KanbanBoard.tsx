@@ -825,10 +825,20 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
             <button onClick={clearSelection} className="text-violet-300 hover:text-white transition-colors p-1 mr-1">
               <X size={14} />
             </button>
-            <div className="flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1 mr-2">
+            <div className="flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1">
               <span className="text-xs font-bold">{selected.size}</span>
               <span className="text-xs text-violet-200">selecionado{selected.size > 1 ? 's' : ''}</span>
             </div>
+            {selected.size < filtered.length ? (
+              <button
+                onClick={() => setSelected(new Set(filtered.map(l => l.id)))}
+                className="text-xs text-violet-300 hover:text-white underline underline-offset-2 px-1 mr-1 transition-colors"
+              >
+                Selecionar todos ({filtered.length.toLocaleString('pt-BR')})
+              </button>
+            ) : (
+              <span className="text-xs text-violet-300 px-1 mr-1">Todos selecionados</span>
+            )}
             {(['etapa', 'dono', 'status', 'origem', 'tag'] as ActivePanel[]).map(p => (
               <button key={p} onClick={() => togglePanel(p)} disabled={salvando}
                 className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${
