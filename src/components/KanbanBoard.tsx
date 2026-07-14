@@ -653,51 +653,56 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
                                 onClick={() => !selected.size && setDetailLead(lead)}
-                                className={`group bg-white rounded-lg p-3 cursor-pointer border transition-all ${
+                                className={`group bg-white rounded-xl p-3 cursor-pointer border transition-all ${
                                   snapshot.isDragging
-                                    ? 'shadow-lg border-blue-200 rotate-1'
+                                    ? 'shadow-lg border-violet-200 rotate-1'
                                     : selected.has(lead.id)
-                                    ? 'border-violet-400 ring-1 ring-violet-300'
+                                    ? 'border-violet-400 ring-1 ring-violet-200 shadow-sm'
                                     : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'
                                 }`}
                               >
-                                {/* Tag + checkbox */}
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded font-medium">
+                                {/* Tag + Avatar/Checkbox */}
+                                <div className="flex items-start justify-between mb-2.5">
+                                  <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded-md font-medium leading-5">
                                     {lead.informacoes_adicionais?.split(',')[0]?.trim() ?? 'Lead'}
                                   </span>
-                                  <button
-                                    onClick={e => toggleSelect(lead.id, e)}
-                                    className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                                  {/* Avatar que faz fade e vira checkbox no hover */}
+                                  <div className="relative w-8 h-8 flex-shrink-0 ml-1">
+                                    <div className={`absolute inset-0 rounded-full bg-gradient-to-br from-violet-400 to-indigo-500 flex items-center justify-center transition-all duration-200 ${
                                       selected.has(lead.id)
-                                        ? 'bg-violet-600 border-violet-600'
-                                        : 'border-gray-300 hover:border-violet-400 bg-white opacity-0 group-hover:opacity-100'
-                                    }`}
-                                  >
-                                    {selected.has(lead.id) && <Check size={10} className="text-white" strokeWidth={3} />}
-                                  </button>
-                                </div>
-
-                                {/* Nome + avatar */}
-                                <div className="flex items-start justify-between gap-2 mb-3">
-                                  <p className="text-sm font-semibold text-gray-900 leading-snug flex-1">
-                                    {lead.nome}
-                                  </p>
-                                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-white text-xs font-bold">
-                                      {lead.nome.charAt(0).toUpperCase()}
-                                    </span>
+                                        ? 'opacity-0 scale-90'
+                                        : 'opacity-100 scale-100 group-hover:opacity-0 group-hover:scale-90'
+                                    }`}>
+                                      <span className="text-white text-xs font-bold leading-none">
+                                        {lead.nome.charAt(0).toUpperCase()}
+                                      </span>
+                                    </div>
+                                    <button
+                                      onClick={e => toggleSelect(lead.id, e)}
+                                      className={`absolute inset-0 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${
+                                        selected.has(lead.id)
+                                          ? 'bg-violet-600 border-violet-600 opacity-100 scale-100'
+                                          : 'bg-white border-gray-300 hover:border-violet-400 opacity-0 scale-90 group-hover:opacity-100 group-hover:scale-100'
+                                      }`}
+                                    >
+                                      {selected.has(lead.id) && <Check size={13} className="text-white" strokeWidth={3} />}
+                                    </button>
                                   </div>
                                 </div>
 
-                                {/* Ações + dono + tempo */}
+                                {/* Nome */}
+                                <p className="text-sm font-semibold text-gray-900 leading-snug mb-3">
+                                  {lead.nome}
+                                </p>
+
+                                {/* Ações + tempo */}
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <DonoButton lead={lead} />
-                                    <button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                    <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={e => e.stopPropagation()}>
                                       <Phone size={13} />
                                     </button>
-<button className="text-gray-400 hover:text-gray-600" onClick={e => e.stopPropagation()}>
+                                    <button className="text-gray-400 hover:text-gray-600 transition-colors" onClick={e => e.stopPropagation()}>
                                       <MessageCircle size={13} />
                                     </button>
                                     <span className="text-xs text-gray-400 font-medium">R$0</span>
