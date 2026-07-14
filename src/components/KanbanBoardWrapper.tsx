@@ -85,25 +85,12 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
-      <Navbar email={email} onHome={() => setNegocioAtivo(null)} onNewLead={() => setShowNewLead(true)} onImportLeads={() => setShowImport(true)} />
+      <Navbar email={email} isHome={negocioAtivo === null} onHome={() => setNegocioAtivo(null)} onNewLead={() => setShowNewLead(true)} onImportLeads={() => setShowImport(true)} />
 
       <div className="flex flex-1 overflow-hidden">
         {/* ── Sidebar ── */}
         <aside className="w-56 flex-shrink-0 bg-white border-r border-gray-100 flex flex-col overflow-y-auto">
           <div className="px-3 pt-3 pb-4">
-
-            {/* Início */}
-            <button
-              onClick={() => setNegocioAtivo(null)}
-              className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-lg text-xs mb-3 transition-colors ${
-                negocioAtivo === null
-                  ? 'bg-violet-50 text-violet-700 font-semibold'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <Home size={12} className="flex-shrink-0" />
-              Início
-            </button>
 
             {/* Cabeçalho Origens */}
             <div className="flex items-center justify-between mb-2">

@@ -7,20 +7,17 @@ import { logout } from '@/app/actions/leads'
 
 interface Props {
   email: string
+  isHome?: boolean
   onHome?: () => void
   onNewLead?: () => void
   onNewContact?: () => void
   onImportLeads?: () => void
 }
 
-export default function Navbar({ email, onHome, onNewLead, onNewContact, onImportLeads }: Props) {
+export default function Navbar({ email, isHome, onHome, onNewLead, onNewContact, onImportLeads }: Props) {
   const pathname = usePathname()
   const isContatos = pathname === '/contatos'
-
-  const tabs = [
-    { label: 'Negócios', href: '/' },
-    { label: 'Contatos', href: '/contatos' },
-  ]
+  const isNegocios = !isContatos && !isHome
 
   return (
     <header className="bg-white border-b border-gray-200 flex-shrink-0">
@@ -38,22 +35,36 @@ export default function Navbar({ email, onHome, onNewLead, onNewContact, onImpor
 
         {/* Tabs */}
         <nav className="flex items-center gap-1 ml-4">
-          {tabs.map(tab => {
-            const active = tab.href === '/' ? !isContatos : isContatos
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-gray-100 text-gray-900'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {tab.label}
-              </Link>
-            )
-          })}
+          <button
+            onClick={onHome}
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              isHome
+                ? 'bg-gray-100 text-gray-900'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Início
+          </button>
+          <Link
+            href="/"
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              isNegocios
+                ? 'bg-gray-100 text-gray-900'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Negócios
+          </Link>
+          <Link
+            href="/contatos"
+            className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              isContatos
+                ? 'bg-gray-100 text-gray-900'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Contatos
+          </Link>
         </nav>
 
         <div className="flex-1" />
