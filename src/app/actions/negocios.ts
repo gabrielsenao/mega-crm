@@ -58,6 +58,11 @@ export async function createNegocio(nome: string, origemId: string, etapas: stri
   return data
 }
 
+export async function getTarefasEtapa(negocioId: string) {
+  const { getTarefasEtapa: get } = await import('./tarefas')
+  return get(negocioId)
+}
+
 export async function updateNegocio(id: string, fields: { nome?: string; etapas?: string[]; motivos_perda?: string[] }) {
   const supabase = await createClient()
   await supabase.from('negocios').update(fields).eq('id', id)

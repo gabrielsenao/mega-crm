@@ -90,11 +90,21 @@ export async function deleteLead(id: string) {
 
 export async function moveLeadColumn(id: string, coluna: Column, posicao: number) {
   const supabase = await createClient()
+
+  const { data: lead } = await supabase.from('leads').select('negocio_id').eq('id', id).single()
+
   await supabase.from('leads').update({
     coluna,
     posicao,
     updated_at: new Date().toISOString(),
   }).eq('id', id)
+
+  // Cria tarefas da nova etapa automaticamente
+  if (lead?.negocio_id) {
+    const { criarTarefasParaEtapa } = await import('./tarefas')
+    await criarTarefasParaEtapa(id, lead.negocio_id, coluna)
+  }
+
   revalidatePath('/')
 }
 

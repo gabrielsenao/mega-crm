@@ -36,6 +36,37 @@ export interface Negocio {
   nome: string
   origem_id: string
   etapas: string[]
+  motivos_perda?: string[]
+  user_id: string
+  created_at: string
+}
+
+export type TipoTarefa = 'ligacao' | 'whatsapp' | 'email' | 'tarefa'
+
+export interface TarefaEtapa {
+  id: string
+  negocio_id: string
+  etapa: string
+  tipo: TipoTarefa
+  titulo: string
+  descricao: string | null
+  dia: number
+  horario: string | null
+  ordem: number
+  user_id: string
+  created_at: string
+}
+
+export interface TarefaLead {
+  id: string
+  lead_id: string
+  tarefa_etapa_id: string | null
+  tipo: TipoTarefa
+  titulo: string
+  descricao: string | null
+  concluida: boolean
+  data_prevista: string | null
+  data_conclusao: string | null
   user_id: string
   created_at: string
 }

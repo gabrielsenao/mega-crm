@@ -429,6 +429,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
         <LeadDetailPanel
           lead={detailLead}
           origemAtiva={negocioAtivo?.nome ?? 'Geral'}
+          etapas={etapas}
           onClose={() => setDetailLead(null)}
         />
       )}

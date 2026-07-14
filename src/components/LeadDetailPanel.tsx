@@ -1,9 +1,17 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { X, Phone, Mail, MessageCircle, Calendar, Plus, ChevronLeft, ChevronRight, Edit2, Trash2, Check, StickyNote } from 'lucide-react'
-import { Lead, Nota, COLUMNS, Column } from '@/types'
+import { useState, useEffect } from 'react'
+import { X, Phone, Mail, MessageCircle, Calendar, Plus, ChevronLeft, ChevronRight, Edit2, Trash2, Check, StickyNote, CheckSquare, Square, Clock } from 'lucide-react'
+import { Lead, Nota, TarefaLead, TipoTarefa } from '@/types'
 import { updateLead, deleteLead, addNota, deleteNota } from '@/app/actions/leads'
+import { getTarefasLead, concluirTarefa, deleteTarefaLead, createTarefaManual } from '@/app/actions/tarefas'
+
+const TIPO_CONFIG: Record<TipoTarefa, { label: string; color: string }> = {
+  ligacao:  { label: 'Ligação',  color: 'text-blue-600 bg-blue-50' },
+  whatsapp: { label: 'WhatsApp', color: 'text-emerald-600 bg-emerald-50' },
+  email:    { label: 'E-mail',   color: 'text-violet-600 bg-violet-50' },
+  tarefa:   { label: 'Tarefa',   color: 'text-gray-600 bg-gray-100' },
+}
 
 const AVATAR_COLORS = [
   'from-violet-500 to-purple-700',
@@ -91,10 +99,11 @@ type Tab = 'atividades' | 'contato' | 'negocio'
 interface Props {
   lead: Lead
   origemAtiva: string
+  etapas?: string[]
   onClose: () => void
 }
 
-export default function LeadDetailPanel({ lead, origemAtiva, onClose }: Props) {
+export default function LeadDetailPanel({ lead, origemAtiva, etapas = ['Base', 'Agendamento', 'Fechados'], onClose }: Props) {
   const [tab, setTab] = useState<Tab>('atividades')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -104,7 +113,41 @@ export default function LeadDetailPanel({ lead, origemAtiva, onClose }: Props) {
   const [novaNota, setNovaNota] = useState('')
   const [savingNota, setSavingNota] = useState(false)
 
-  const stageIndex = COLUMNS.indexOf(lead.coluna as Column)
+  // Tarefas
+  const [tarefas, setTarefas] = useState<TarefaLead[]>([])
+  const [loadingTarefas, setLoadingTarefas] = useState(false)
+  const [novoTarefaForm, setNovoTarefaForm] = useState(false)
+  const [novoTipoTarefa, setNovoTipoTarefa] = useState<TipoTarefa>('tarefa')
+  const [novoTituloTarefa, setNovoTituloTarefa] = useState('')
+  const [savingTarefa, setSavingTarefa] = useState(false)
+
+  useEffect(() => {
+    setLoadingTarefas(true)
+    getTarefasLead(lead.id).then(setTarefas).finally(() => setLoadingTarefas(false))
+  }, [lead.id])
+
+  async function handleToggleTarefa(id: string, atual: boolean) {
+    setTarefas(prev => prev.map(t => t.id === id ? { ...t, concluida: !atual } : t))
+    await concluirTarefa(id, !atual)
+  }
+
+  async function handleDeleteTarefa(id: string) {
+    setTarefas(prev => prev.filter(t => t.id !== id))
+    await deleteTarefaLead(id)
+  }
+
+  async function handleAddTarefa() {
+    if (!novoTituloTarefa.trim()) return
+    setSavingTarefa(true)
+    await createTarefaManual(lead.id, { tipo: novoTipoTarefa, titulo: novoTituloTarefa.trim() })
+    const atualizadas = await getTarefasLead(lead.id)
+    setTarefas(atualizadas)
+    setNovoTituloTarefa('')
+    setNovoTarefaForm(false)
+    setSavingTarefa(false)
+  }
+
+  const stageIndex = etapas.indexOf(lead.coluna)
   const tags = lead.informacoes_adicionais
     ? lead.informacoes_adicionais.split(',').map(t => t.trim()).filter(Boolean)
     : []
@@ -235,27 +278,118 @@ export default function LeadDetailPanel({ lead, origemAtiva, onClose }: Props) {
               <div className="px-6 py-5 border-b border-gray-100">
                 <div className="flex items-center">
                   <button className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 flex-shrink-0"><ChevronLeft size={16} /></button>
-                  <div className="flex items-center flex-1 justify-center">
-                    {COLUMNS.map((col, idx) => {
+                  <div className="flex items-center flex-1 justify-center overflow-x-auto">
+                    {etapas.map((col, idx) => {
                       const isActive = idx === stageIndex
                       const isPast = idx < stageIndex
                       return (
-                        <div key={col} className="flex items-center">
+                        <div key={col} className="flex items-center flex-shrink-0">
                           <div className="flex flex-col items-center gap-1">
-                            <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${
                               isActive ? 'bg-violet-600 border-violet-600 text-white'
                               : isPast  ? 'bg-violet-200 border-violet-300 text-violet-700'
                               : 'bg-white border-gray-200 text-gray-400'
                             }`}>{idx + 1}</div>
-                            <span className={`text-xs font-medium ${isActive ? 'text-violet-700' : isPast ? 'text-violet-500' : 'text-gray-400'}`}>{col}</span>
+                            <span className={`text-[10px] font-medium max-w-[56px] text-center leading-tight ${isActive ? 'text-violet-700' : isPast ? 'text-violet-500' : 'text-gray-400'}`}>{col}</span>
                           </div>
-                          {idx < COLUMNS.length - 1 && <div className={`w-16 h-0.5 mb-5 mx-1 ${isPast ? 'bg-violet-300' : 'bg-gray-200'}`} />}
+                          {idx < etapas.length - 1 && <div className={`w-10 h-0.5 mb-5 mx-1 flex-shrink-0 ${isPast ? 'bg-violet-300' : 'bg-gray-200'}`} />}
                         </div>
                       )
                     })}
                   </div>
                   <button className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-gray-600 flex-shrink-0"><ChevronRight size={16} /></button>
                 </div>
+              </div>
+
+              {/* Tarefas */}
+              <div className="px-6 py-5 border-b border-gray-100">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare size={14} className="text-violet-500" />
+                    <p className="text-sm font-semibold text-gray-800">Tarefas</p>
+                    <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full">
+                      {tarefas.filter(t => !t.concluida).length} pendente{tarefas.filter(t => !t.concluida).length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setNovoTarefaForm(true)}
+                    className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 font-medium"
+                  >
+                    <Plus size={12} /> Adicionar
+                  </button>
+                </div>
+
+                {loadingTarefas ? (
+                  <p className="text-xs text-gray-400 py-2">Carregando...</p>
+                ) : (
+                  <div className="space-y-1.5">
+                    {tarefas.length === 0 && !novoTarefaForm && (
+                      <p className="text-xs text-gray-400 italic py-2">Nenhuma tarefa. As tarefas aparecem automaticamente quando o lead muda de etapa.</p>
+                    )}
+                    {tarefas.map(t => {
+                      const cfg = TIPO_CONFIG[t.tipo] ?? TIPO_CONFIG.tarefa
+                      return (
+                        <div key={t.id} className={`group flex items-start gap-2.5 rounded-xl px-3 py-2.5 transition-colors ${t.concluida ? 'opacity-50' : 'hover:bg-gray-50'}`}>
+                          <button
+                            onClick={() => handleToggleTarefa(t.id, t.concluida)}
+                            className="mt-0.5 flex-shrink-0 text-gray-300 hover:text-violet-500 transition-colors"
+                          >
+                            {t.concluida ? <CheckSquare size={15} className="text-violet-400" /> : <Square size={15} />}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${cfg.color}`}>{cfg.label}</span>
+                              <p className={`text-sm font-medium ${t.concluida ? 'line-through text-gray-400' : 'text-gray-800'}`}>{t.titulo}</p>
+                            </div>
+                            {t.descricao && <p className="text-xs text-gray-400">{t.descricao}</p>}
+                            {t.data_prevista && (
+                              <p className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
+                                <Clock size={10} />
+                                {new Date(t.data_prevista).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handleDeleteTarefa(t.id)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-200 hover:text-red-400 transition-all flex-shrink-0"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      )
+                    })}
+
+                    {novoTarefaForm && (
+                      <div className="bg-gray-50 rounded-xl p-3 space-y-2 mt-1">
+                        <div className="flex gap-1.5 flex-wrap">
+                          {(Object.entries(TIPO_CONFIG) as [TipoTarefa, typeof TIPO_CONFIG['tarefa']][]).map(([tipo, cfg]) => (
+                            <button
+                              key={tipo}
+                              onClick={() => setNovoTipoTarefa(tipo)}
+                              className={`text-xs px-2 py-1 rounded-lg font-medium transition-colors ${novoTipoTarefa === tipo ? cfg.color + ' ring-1 ring-current' : 'bg-white border border-gray-200 text-gray-500'}`}
+                            >
+                              {cfg.label}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          autoFocus
+                          value={novoTituloTarefa}
+                          onChange={e => setNovoTituloTarefa(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') handleAddTarefa(); if (e.key === 'Escape') setNovoTarefaForm(false) }}
+                          placeholder="Título da tarefa..."
+                          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white"
+                        />
+                        <div className="flex gap-2">
+                          <button onClick={() => setNovoTarefaForm(false)} className="flex-1 py-1.5 text-xs text-gray-500 border border-gray-200 bg-white rounded-lg">Cancelar</button>
+                          <button onClick={handleAddTarefa} disabled={savingTarefa || !novoTituloTarefa.trim()} className="flex-1 py-1.5 text-xs bg-violet-600 hover:bg-violet-700 disabled:bg-violet-300 text-white font-medium rounded-lg">
+                            {savingTarefa ? '...' : 'Salvar'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Anotações */}
