@@ -157,6 +157,15 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
   const [donoFilter, setDonoFilter] = useState('')
   const [origemFilter, setOrigemFilter] = useState('')
   const [etapaFilter, setEtapaFilter] = useState('')
+
+  // Filtros de kanban
+  const [openFilter, setOpenFilter] = useState<'status' | 'dono' | 'tags' | null>(null)
+  const [filterStatusSet, setFilterStatusSet] = useState<Set<string>>(new Set(['ativo']))
+  const [filterDonoSet, setFilterDonoSet] = useState<Set<string>>(new Set())
+  const [filterTagSet, setFilterTagSet] = useState<Set<string>>(new Set())
+  const [filterDonoSearch, setFilterDonoSearch] = useState('')
+  const [filterTagSearch, setFilterTagSearch] = useState('')
+  const filterRef = useRef<HTMLDivElement>(null)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -171,6 +180,14 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
     if (dateOpen) document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
   }, [dateOpen])
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) setOpenFilter(null)
+    }
+    if (openFilter) document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [openFilter])
 
   function clearDateFilter() {
     setDateFilter('')
@@ -248,20 +265,37 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
     setSalvando(false)
   }
 
-  // Donos únicos para o picker
-  const donosUnicos = [...new Set(leads.filter(l => l.dono).map(l => l.dono as string))]
+  // Dados derivados para os pickers
+  const donosUnicos = [...new Set(leads.filter(l => l.dono).map(l => l.dono as string))].sort()
+  const tagsUnicas = [...new Set(
+    leads.flatMap(l => l.informacoes_adicionais?.split(',').map(t => t.trim()).filter(Boolean) ?? [])
+  )].sort()
 
   const hasDateFilter = !!(dateFilter || dateFrom || dateTo)
+  const hasStatusFilter = filterStatusSet.size > 0 && !(filterStatusSet.size === 1 && filterStatusSet.has('ativo'))
+  const hasDonoFilter = filterDonoSet.size > 0
+  const hasTagFilter = filterTagSet.size > 0
 
   const filtered = leads.filter(l => {
     const matchNegocio = negocioAtivo ? l.negocio_id === negocioAtivo.id : true
-    const matchStatus = (l.status ?? 'ativo') === 'ativo'
+
+    const currentStatus = l.status ?? 'ativo'
+    const matchStatus = filterStatusSet.size === 0 || filterStatusSet.has(currentStatus)
+
+    const matchDono = filterDonoSet.size === 0 ||
+      (filterDonoSet.has('__sem_dono__') && !l.dono) ||
+      (!!l.dono && filterDonoSet.has(l.dono))
+
+    const leadTags = l.informacoes_adicionais?.split(',').map(t => t.trim()).filter(Boolean) ?? []
+    const matchTag = filterTagSet.size === 0 || leadTags.some(t => filterTagSet.has(t))
+
     const q = search.toLowerCase()
     const matchSearch = !q ||
       l.nome.toLowerCase().includes(q) ||
       (l.email ?? '').toLowerCase().includes(q) ||
       (l.numero ?? '').replace(/\D/g, '').includes(q.replace(/\D/g, '')) ||
       (l.dono ?? '').toLowerCase().includes(q)
+
     let matchDate = true
     if (dateFilter) {
       matchDate = dateRangeFilter(l.created_at, dateFilter)
@@ -270,7 +304,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
       if (dateFrom) matchDate = matchDate && d >= new Date(dateFrom + 'T00:00:00')
       if (dateTo)   matchDate = matchDate && d <= new Date(dateTo   + 'T23:59:59')
     }
-    return matchNegocio && matchStatus && matchSearch && matchDate
+    return matchNegocio && matchStatus && matchDono && matchTag && matchSearch && matchDate
   })
 
   const leadsByColumn = useCallback((col: string) =>
@@ -384,11 +418,146 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
             )}
           </div>
 
-          {['Campos', 'Tags', 'Status'].map(f => (
-            <button key={f} className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
-              {f} <ChevronDown size={11} />
-            </button>
-          ))}
+          {/* Filtros com dropdown */}
+          <div ref={filterRef} className="flex items-center gap-2">
+
+            {/* Status */}
+            <div className="relative">
+              <button
+                onClick={() => setOpenFilter(openFilter === 'status' ? null : 'status')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+                  hasStatusFilter ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Status {hasStatusFilter && `· ${filterStatusSet.size}`} <ChevronDown size={11} />
+              </button>
+              {openFilter === 'status' && (
+                <div className="absolute top-9 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-xl py-2 w-48">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide px-3 pb-1">Status do lead</p>
+                  {[
+                    { value: 'ativo', label: 'Aberto' },
+                    { value: 'ganho', label: 'Ganho' },
+                    { value: 'perdido', label: 'Perdido' },
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      onClick={() => {
+                        setFilterStatusSet(prev => {
+                          const next = new Set(prev)
+                          next.has(value) ? next.delete(value) : next.add(value)
+                          return next
+                        })
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
+                    >
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center ${
+                        filterStatusSet.has(value) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+                      }`}>
+                        {filterStatusSet.has(value) && <Check size={10} className="text-white" strokeWidth={3} />}
+                      </div>
+                      <span className={value === 'ganho' ? 'text-emerald-600' : value === 'perdido' ? 'text-red-500' : ''}>{label}</span>
+                    </button>
+                  ))}
+                  {filterStatusSet.size > 0 && (
+                    <div className="border-t border-gray-100 mt-1 pt-1 px-3">
+                      <button onClick={() => setFilterStatusSet(new Set(['ativo']))} className="text-xs text-blue-500 hover:text-blue-700">
+                        Resetar
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Dono */}
+            <div className="relative">
+              <button
+                onClick={() => { setOpenFilter(openFilter === 'dono' ? null : 'dono'); setFilterDonoSearch('') }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+                  hasDonoFilter ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Dono {hasDonoFilter && `· ${filterDonoSet.size}`} <ChevronDown size={11} />
+              </button>
+              {openFilter === 'dono' && (
+                <div className="absolute top-9 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-xl py-2 w-56">
+                  <div className="px-2 pb-2">
+                    <div className="relative">
+                      <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input autoFocus value={filterDonoSearch} onChange={e => setFilterDonoSearch(e.target.value)}
+                        placeholder="Buscar por..." className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                    </div>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto">
+                    {[{ value: '__sem_dono__', label: 'Sem dono' }, ...donosUnicos.filter(d => d.toLowerCase().includes(filterDonoSearch.toLowerCase())).map(d => ({ value: d, label: d }))].map(({ value, label }) => (
+                      <button key={value}
+                        onClick={() => setFilterDonoSet(prev => { const next = new Set(prev); next.has(value) ? next.delete(value) : next.add(value); return next })}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${filterDonoSet.has(value) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                          {filterDonoSet.has(value) && <Check size={10} className="text-white" strokeWidth={3} />}
+                        </div>
+                        {value !== '__sem_dono__' && (
+                          <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0">
+                            {label[0].toUpperCase()}
+                          </div>
+                        )}
+                        <span className="truncate">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {hasDonoFilter && (
+                    <div className="border-t border-gray-100 mt-1 pt-1 px-3">
+                      <button onClick={() => setFilterDonoSet(new Set())} className="text-xs text-blue-500 hover:text-blue-700">Limpar</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Tags */}
+            <div className="relative">
+              <button
+                onClick={() => { setOpenFilter(openFilter === 'tags' ? null : 'tags'); setFilterTagSearch('') }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm border rounded-lg transition-colors ${
+                  hasTagFilter ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Tags {hasTagFilter && `· ${filterTagSet.size}`} <ChevronDown size={11} />
+              </button>
+              {openFilter === 'tags' && (
+                <div className="absolute top-9 left-0 z-20 bg-white border border-gray-200 rounded-xl shadow-xl py-2 w-56">
+                  <div className="px-2 pb-2">
+                    <div className="relative">
+                      <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input autoFocus value={filterTagSearch} onChange={e => setFilterTagSearch(e.target.value)}
+                        placeholder="Buscar por..." className="w-full pl-6 pr-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400" />
+                    </div>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto">
+                    {tagsUnicas.filter(t => t.toLowerCase().includes(filterTagSearch.toLowerCase())).map(tag => (
+                      <button key={tag}
+                        onClick={() => setFilterTagSet(prev => { const next = new Set(prev); next.has(tag) ? next.delete(tag) : next.add(tag); return next })}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-50 transition-colors"
+                      >
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 ${filterTagSet.has(tag) ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+                          {filterTagSet.has(tag) && <Check size={10} className="text-white" strokeWidth={3} />}
+                        </div>
+                        <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded font-medium truncate">{tag}</span>
+                      </button>
+                    ))}
+                    {tagsUnicas.length === 0 && <p className="text-xs text-gray-400 px-3 py-2">Sem tags cadastradas</p>}
+                  </div>
+                  {hasTagFilter && (
+                    <div className="border-t border-gray-100 mt-1 pt-1 px-3">
+                      <button onClick={() => setFilterTagSet(new Set())} className="text-xs text-blue-500 hover:text-blue-700">Limpar</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+          </div>
           <button className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
             <SlidersHorizontal size={13} /> Mais filtros
           </button>
