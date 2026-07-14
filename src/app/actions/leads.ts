@@ -82,6 +82,16 @@ export async function updateLeadDono(id: string, dono: string | null) {
   revalidatePath('/')
 }
 
+export async function updateLeadStatus(ids: string[], status: string, motivo_perda?: string) {
+  const supabase = await createClient()
+  await supabase.from('leads').update({
+    status,
+    motivo_perda: motivo_perda ?? null,
+    updated_at: new Date().toISOString(),
+  }).in('id', ids)
+  revalidatePath('/')
+}
+
 export async function deleteLead(id: string) {
   const supabase = await createClient()
   await supabase.from('leads').delete().eq('id', id)

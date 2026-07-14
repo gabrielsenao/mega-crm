@@ -8,6 +8,8 @@ export interface Nota {
   created_at: string
 }
 
+export type LeadStatus = 'ativo' | 'ganho' | 'perdido'
+
 export interface Lead {
   id: string
   nome: string
@@ -19,6 +21,8 @@ export interface Lead {
   dono: string | null
   notas: Nota[]
   negocio_id: string | null
+  status: LeadStatus
+  motivo_perda: string | null
   user_id: string
   created_at: string
   updated_at: string

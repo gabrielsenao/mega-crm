@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { Plus, Phone, Mail, MoreHorizontal, MessageCircle, Search, SlidersHorizontal, UserMinus, ChevronDown } from 'lucide-react'
+import { Plus, Phone, MoreHorizontal, MessageCircle, Search, UserMinus, ChevronDown, Trophy, ThumbsDown, X, Check, SlidersHorizontal } from 'lucide-react'
 import { Lead, Column, COLUMNS, Negocio } from '@/types'
-import { moveLeadColumn, updateLeadDono } from '@/app/actions/leads'
+import { moveLeadColumn, updateLeadDono, updateLeadStatus } from '@/app/actions/leads'
 import LeadModal from './LeadModal'
 import LeadDetailPanel from './LeadDetailPanel'
 
@@ -146,6 +146,9 @@ interface Props {
 export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = null, etapas = COLUMNS }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const [detailLead, setDetailLead] = useState<Lead | null>(null)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [perdaOpen, setPerdaOpen] = useState(false)
+  const [salvando, setSalvando] = useState(false)
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -167,10 +170,43 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
     setDateTo('')
   }
 
+  function toggleSelect(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  function clearSelection() {
+    setSelected(new Set())
+    setPerdaOpen(false)
+  }
+
+  async function handleGanho() {
+    setSalvando(true)
+    const ids = [...selected]
+    await updateLeadStatus(ids, 'ganho')
+    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: 'ganho' } : l))
+    clearSelection()
+    setSalvando(false)
+  }
+
+  async function handlePerda(motivo: string) {
+    setSalvando(true)
+    const ids = [...selected]
+    await updateLeadStatus(ids, 'perdido', motivo)
+    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: 'perdido', motivo_perda: motivo } : l))
+    clearSelection()
+    setSalvando(false)
+  }
+
   const hasDateFilter = !!(dateFilter || dateFrom || dateTo)
 
   const filtered = leads.filter(l => {
     const matchNegocio = negocioAtivo ? l.negocio_id === negocioAtivo.id : true
+    const matchStatus = (l.status ?? 'ativo') === 'ativo'
     const q = search.toLowerCase()
     const matchSearch = !q ||
       l.nome.toLowerCase().includes(q) ||
@@ -185,7 +221,7 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
       if (dateFrom) matchDate = matchDate && d >= new Date(dateFrom + 'T00:00:00')
       if (dateTo)   matchDate = matchDate && d <= new Date(dateTo   + 'T23:59:59')
     }
-    return matchNegocio && matchSearch && matchDate
+    return matchNegocio && matchStatus && matchSearch && matchDate
   })
 
   const leadsByColumn = useCallback((col: string) =>
@@ -357,18 +393,30 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 {...provided.dragHandleProps}
-                                onClick={() => setDetailLead(lead)}
-                                className={`bg-white rounded-lg p-3 cursor-pointer border transition-all ${
+                                onClick={() => !selected.size && setDetailLead(lead)}
+                                className={`group bg-white rounded-lg p-3 cursor-pointer border transition-all ${
                                   snapshot.isDragging
                                     ? 'shadow-lg border-blue-200 rotate-1'
+                                    : selected.has(lead.id)
+                                    ? 'border-violet-400 ring-1 ring-violet-300'
                                     : 'border-gray-100 hover:border-gray-200 hover:shadow-sm'
                                 }`}
                               >
-                                {/* Tag */}
-                                <div className="mb-2">
+                                {/* Tag + checkbox */}
+                                <div className="flex items-center justify-between mb-2">
                                   <span className="text-xs bg-cyan-100 text-cyan-700 px-2 py-0.5 rounded font-medium">
                                     {lead.informacoes_adicionais?.split(',')[0]?.trim() ?? 'Lead'}
                                   </span>
+                                  <button
+                                    onClick={e => toggleSelect(lead.id, e)}
+                                    className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                                      selected.has(lead.id)
+                                        ? 'bg-violet-600 border-violet-600'
+                                        : 'border-gray-300 hover:border-violet-400 bg-white opacity-0 group-hover:opacity-100'
+                                    }`}
+                                  >
+                                    {selected.has(lead.id) && <Check size={10} className="text-white" strokeWidth={3} />}
+                                  </button>
                                 </div>
 
                                 {/* Nome + avatar */}
@@ -429,6 +477,61 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
           etapas={etapas}
           onClose={() => setDetailLead(null)}
         />
+      )}
+
+      {/* Barra de seleção */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+          {/* Picker de motivo de perda */}
+          {perdaOpen && (
+            <div className="mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 w-72">
+              <p className="text-xs font-semibold text-gray-500 mb-2">Motivo de perda</p>
+              <div className="space-y-1">
+                {(negocioAtivo?.motivos_perda?.length
+                  ? negocioAtivo.motivos_perda
+                  : ['Sem dinheiro', 'Sem tempo', 'Sem computador', 'Não atendeu as ligações', 'Outro']
+                ).map(motivo => (
+                  <button
+                    key={motivo}
+                    onClick={() => handlePerda(motivo)}
+                    disabled={salvando}
+                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-red-50 hover:text-red-700 transition-colors"
+                  >
+                    {motivo}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 bg-gray-900 text-white rounded-2xl px-4 py-3 shadow-2xl">
+            <button onClick={clearSelection} className="text-gray-400 hover:text-white transition-colors mr-1">
+              <X size={15} />
+            </button>
+            <span className="text-sm font-semibold mr-2">
+              {selected.size} selecionado{selected.size > 1 ? 's' : ''}
+            </span>
+            <div className="w-px h-4 bg-gray-700" />
+            <button
+              onClick={handleGanho}
+              disabled={salvando}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              <Trophy size={13} />
+              Ganho
+            </button>
+            <button
+              onClick={() => setPerdaOpen(p => !p)}
+              disabled={salvando}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                perdaOpen ? 'bg-red-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'
+              }`}
+            >
+              <ThumbsDown size={13} />
+              Perda
+            </button>
+          </div>
+        </div>
       )}
     </>
   )
