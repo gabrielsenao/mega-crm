@@ -264,6 +264,8 @@ export default function KanbanBoardWrapper({ leads, origens: initialOrigens, neg
                   onNewLead={() => setShowNewLead(true)}
                   negocioAtivo={negocioAtivo}
                   etapas={etapasAtivas}
+                  negocios={negocios}
+                  origens={origens}
                 />
               </div>
             </>

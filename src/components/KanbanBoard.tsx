@@ -3,8 +3,9 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Plus, Phone, MoreHorizontal, MessageCircle, Search, UserMinus, ChevronDown, Trophy, ThumbsDown, X, Check, SlidersHorizontal } from 'lucide-react'
-import { Lead, Column, COLUMNS, Negocio } from '@/types'
-import { moveLeadColumn, updateLeadDono, updateLeadStatus } from '@/app/actions/leads'
+import { Lead, Column, COLUMNS } from '@/types'
+import { moveLeadColumn, updateLeadDono, updateLeadStatus, updateLeadsColuna, updateLeadsDono, updateLeadsNegocio, deleteLeads } from '@/app/actions/leads'
+import { Negocio as NegocioType, Origem } from '@/types'
 import LeadModal from './LeadModal'
 import LeadDetailPanel from './LeadDetailPanel'
 
@@ -136,19 +137,26 @@ function DonoButton({ lead }: { lead: Lead }) {
 
 // ── KanbanBoard ───────────────────────────────────────────────────────────────
 
+type ActivePanel = 'etapa' | 'dono' | 'status' | 'origem' | 'tag' | null
+
 interface Props {
   initialLeads: Lead[]
   onNewLead: () => void
-  negocioAtivo?: Negocio | null
+  negocioAtivo?: NegocioType | null
   etapas?: string[]
+  negocios?: NegocioType[]
+  origens?: Origem[]
 }
 
-export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = null, etapas = COLUMNS }: Props) {
+export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = null, etapas = COLUMNS, negocios = [], origens = [] }: Props) {
   const [leads, setLeads] = useState<Lead[]>(initialLeads)
   const [detailLead, setDetailLead] = useState<Lead | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [perdaOpen, setPerdaOpen] = useState(false)
+  const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [salvando, setSalvando] = useState(false)
+  const [donoFilter, setDonoFilter] = useState('')
+  const [origemFilter, setOrigemFilter] = useState('')
+  const [etapaFilter, setEtapaFilter] = useState('')
   const [search, setSearch] = useState('')
   const [dateFilter, setDateFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -181,26 +189,67 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
 
   function clearSelection() {
     setSelected(new Set())
-    setPerdaOpen(false)
+    setActivePanel(null)
+    setDonoFilter('')
+    setOrigemFilter('')
+    setEtapaFilter('')
   }
 
-  async function handleGanho() {
+  function togglePanel(p: ActivePanel) {
+    setActivePanel(prev => prev === p ? null : p)
+    setDonoFilter('')
+    setOrigemFilter('')
+    setEtapaFilter('')
+  }
+
+  async function handleEtapa(etapa: string) {
     setSalvando(true)
     const ids = [...selected]
-    await updateLeadStatus(ids, 'ganho')
-    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: 'ganho' } : l))
+    await updateLeadsColuna(ids, etapa)
+    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, coluna: etapa } : l))
     clearSelection()
     setSalvando(false)
   }
 
-  async function handlePerda(motivo: string) {
+  async function handleDono(dono: string | null) {
     setSalvando(true)
     const ids = [...selected]
-    await updateLeadStatus(ids, 'perdido', motivo)
-    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: 'perdido', motivo_perda: motivo } : l))
+    await updateLeadsDono(ids, dono)
+    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, dono } : l))
     clearSelection()
     setSalvando(false)
   }
+
+  async function handleStatus(status: string, motivo?: string) {
+    setSalvando(true)
+    const ids = [...selected]
+    await updateLeadStatus(ids, status, motivo)
+    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, status: status as Lead['status'], motivo_perda: motivo ?? null } : l))
+    clearSelection()
+    setSalvando(false)
+  }
+
+  async function handleOrigem(negocioId: string) {
+    setSalvando(true)
+    const ids = [...selected]
+    await updateLeadsNegocio(ids, negocioId)
+    setLeads(prev => prev.map(l => ids.includes(l.id) ? { ...l, negocio_id: negocioId } : l))
+    clearSelection()
+    setSalvando(false)
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Excluir ${selected.size} lead(s)? Essa ação não pode ser desfeita.`)) return
+    setSalvando(true)
+    const ids = [...selected]
+    await deleteLeads(ids)
+    setLeads(prev => prev.filter(l => !ids.includes(l.id)))
+    clearSelection()
+    setSalvando(false)
+  }
+
+  // Donos únicos para o picker
+  const donosUnicos = [...new Set(leads.filter(l => l.dono).map(l => l.dono as string))]
 
   const hasDateFilter = !!(dateFilter || dateFrom || dateTo)
 
@@ -481,54 +530,149 @@ export default function KanbanBoard({ initialLeads, onNewLead, negocioAtivo = nu
 
       {/* Barra de seleção */}
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-          {/* Picker de motivo de perda */}
-          {perdaOpen && (
-            <div className="mb-2 bg-white border border-gray-200 rounded-xl shadow-xl p-3 w-72">
-              <p className="text-xs font-semibold text-gray-500 mb-2">Motivo de perda</p>
-              <div className="space-y-1">
-                {(negocioAtivo?.motivos_perda?.length
-                  ? negocioAtivo.motivos_perda
-                  : ['Sem dinheiro', 'Sem tempo', 'Sem computador', 'Não atendeu as ligações', 'Outro']
-                ).map(motivo => (
-                  <button
-                    key={motivo}
-                    onClick={() => handlePerda(motivo)}
-                    disabled={salvando}
-                    className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-red-50 hover:text-red-700 transition-colors"
-                  >
-                    {motivo}
-                  </button>
-                ))}
-              </div>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center">
+          {/* Painel ativo */}
+          {activePanel && (
+            <div className="mb-2 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden w-72">
+              {activePanel === 'etapa' && (
+                <>
+                  <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-700">Alterar etapa</p>
+                    <button onClick={() => setActivePanel(null)}><X size={13} className="text-gray-400" /></button>
+                  </div>
+                  <div className="px-2 pt-2 pb-1">
+                    <input autoFocus value={etapaFilter} onChange={e => setEtapaFilter(e.target.value)} placeholder="Digite para filtrar..." className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 mb-1" />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto pb-2">
+                    {etapas.filter(e => e.toLowerCase().includes(etapaFilter.toLowerCase())).map(etapa => (
+                      <button key={etapa} onClick={() => handleEtapa(etapa)} disabled={salvando}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors">{etapa}</button>
+                    ))}
+                  </div>
+                </>
+              )}
+              {activePanel === 'dono' && (
+                <>
+                  <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-700">Alterar dono</p>
+                    <button onClick={() => setActivePanel(null)}><X size={13} className="text-gray-400" /></button>
+                  </div>
+                  <div className="px-2 pt-2 pb-1">
+                    <input autoFocus value={donoFilter} onChange={e => setDonoFilter(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter' && donoFilter.trim()) handleDono(donoFilter.trim()) }}
+                      placeholder="Digite para filtrar..." className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 mb-1" />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto pb-2">
+                    {donosUnicos.filter(d => d.toLowerCase().includes(donoFilter.toLowerCase())).map(dono => (
+                      <button key={dono} onClick={() => handleDono(dono)} disabled={salvando}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-violet-500 flex items-center justify-center text-white text-[10px] font-bold">{dono[0].toUpperCase()}</div>
+                        {dono}
+                      </button>
+                    ))}
+                    {donoFilter.trim() && !donosUnicos.includes(donoFilter.trim()) && (
+                      <button onClick={() => handleDono(donoFilter.trim())} disabled={salvando}
+                        className="w-full text-left px-4 py-2 text-sm text-violet-600 hover:bg-violet-50 transition-colors">
+                        Atribuir "{donoFilter.trim()}"
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+              {activePanel === 'status' && (
+                <>
+                  <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-700">Alterar status</p>
+                    <button onClick={() => setActivePanel(null)}><X size={13} className="text-gray-400" /></button>
+                  </div>
+                  <div className="py-2">
+                    <button onClick={() => handleStatus('ativo')} disabled={salvando}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors">Aberto</button>
+                    <button onClick={() => handleStatus('ganho')} disabled={salvando}
+                      className="w-full text-left px-4 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2">
+                      <Trophy size={13} /> Ganho
+                    </button>
+                    <div className="border-t border-gray-100 mt-1 pt-1">
+                      <p className="text-[10px] text-gray-400 px-4 py-1 font-semibold uppercase tracking-wide">Perdido — motivo</p>
+                      {(negocioAtivo?.motivos_perda?.length
+                        ? negocioAtivo.motivos_perda
+                        : ['Sem dinheiro', 'Sem tempo', 'Sem computador', 'Não atendeu as ligações', 'Outro']
+                      ).map(motivo => (
+                        <button key={motivo} onClick={() => handleStatus('perdido', motivo)} disabled={salvando}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                          {motivo}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+              {activePanel === 'origem' && (
+                <>
+                  <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-700">Alterar origem</p>
+                    <button onClick={() => setActivePanel(null)}><X size={13} className="text-gray-400" /></button>
+                  </div>
+                  <div className="px-2 pt-2 pb-1">
+                    <input autoFocus value={origemFilter} onChange={e => setOrigemFilter(e.target.value)} placeholder="Digite para filtrar..." className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-violet-400 mb-1" />
+                  </div>
+                  <div className="max-h-48 overflow-y-auto pb-2">
+                    {origens.map(org => {
+                      const negsOrig = negocios.filter(n => n.origem_id === org.id && n.nome.toLowerCase().includes(origemFilter.toLowerCase()))
+                      if (!negsOrig.length) return null
+                      return (
+                        <div key={org.id}>
+                          <p className="text-[10px] text-gray-400 px-4 py-1 font-semibold uppercase tracking-wide">{org.nome}</p>
+                          {negsOrig.map(neg => (
+                            <button key={neg.id} onClick={() => handleOrigem(neg.id)} disabled={salvando}
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors">{neg.nome}</button>
+                          ))}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </>
+              )}
+              {activePanel === 'tag' && (
+                <>
+                  <div className="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-100">
+                    <p className="text-xs font-semibold text-gray-700">Alterar tag</p>
+                    <button onClick={() => setActivePanel(null)}><X size={13} className="text-gray-400" /></button>
+                  </div>
+                  <div className="py-2">
+                    <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
+                      <span className="text-base">🏷️</span> Incluir
+                    </button>
+                    <button className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 transition-colors flex items-center gap-2">
+                      <span className="text-base">🗑️</span> Remover
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
-          <div className="flex items-center gap-2 bg-gray-900 text-white rounded-2xl px-4 py-3 shadow-2xl">
-            <button onClick={clearSelection} className="text-gray-400 hover:text-white transition-colors mr-1">
-              <X size={15} />
+          <div className="flex items-center gap-1 bg-violet-700 text-white rounded-2xl px-3 py-2.5 shadow-2xl">
+            <button onClick={clearSelection} className="text-violet-300 hover:text-white transition-colors p-1 mr-1">
+              <X size={14} />
             </button>
-            <span className="text-sm font-semibold mr-2">
-              {selected.size} selecionado{selected.size > 1 ? 's' : ''}
-            </span>
-            <div className="w-px h-4 bg-gray-700" />
-            <button
-              onClick={handleGanho}
-              disabled={salvando}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg transition-colors"
-            >
-              <Trophy size={13} />
-              Ganho
-            </button>
-            <button
-              onClick={() => setPerdaOpen(p => !p)}
-              disabled={salvando}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                perdaOpen ? 'bg-red-600 text-white' : 'bg-red-500 hover:bg-red-600 text-white'
-              }`}
-            >
-              <ThumbsDown size={13} />
-              Perda
+            <div className="flex items-center gap-1 bg-white/20 rounded-lg px-2 py-1 mr-2">
+              <span className="text-xs font-bold">{selected.size}</span>
+              <span className="text-xs text-violet-200">selecionado{selected.size > 1 ? 's' : ''}</span>
+            </div>
+            {(['etapa', 'dono', 'status', 'origem', 'tag'] as ActivePanel[]).map(p => (
+              <button key={p} onClick={() => togglePanel(p)} disabled={salvando}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg capitalize transition-colors ${
+                  activePanel === p ? 'bg-white text-violet-700' : 'hover:bg-white/20 text-white'
+                }`}>
+                {p === 'etapa' ? 'Etapa' : p === 'dono' ? 'Dono' : p === 'status' ? 'Status' : p === 'origem' ? 'Origem' : 'Tag'}
+              </button>
+            ))}
+            <div className="w-px h-4 bg-white/30 mx-1" />
+            <button onClick={handleDelete} disabled={salvando}
+              className="p-1.5 rounded-lg hover:bg-red-500 text-violet-200 hover:text-white transition-colors">
+              <ThumbsDown size={14} className="hidden" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
             </button>
           </div>
         </div>

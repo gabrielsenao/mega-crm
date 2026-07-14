@@ -82,6 +82,30 @@ export async function updateLeadDono(id: string, dono: string | null) {
   revalidatePath('/')
 }
 
+export async function updateLeadsColuna(ids: string[], coluna: Column) {
+  const supabase = await createClient()
+  await supabase.from('leads').update({ coluna, updated_at: new Date().toISOString() }).in('id', ids)
+  revalidatePath('/')
+}
+
+export async function updateLeadsDono(ids: string[], dono: string | null) {
+  const supabase = await createClient()
+  await supabase.from('leads').update({ dono, updated_at: new Date().toISOString() }).in('id', ids)
+  revalidatePath('/')
+}
+
+export async function updateLeadsNegocio(ids: string[], negocio_id: string) {
+  const supabase = await createClient()
+  await supabase.from('leads').update({ negocio_id, updated_at: new Date().toISOString() }).in('id', ids)
+  revalidatePath('/')
+}
+
+export async function deleteLeads(ids: string[]) {
+  const supabase = await createClient()
+  await supabase.from('leads').delete().in('id', ids)
+  revalidatePath('/')
+}
+
 export async function updateLeadStatus(ids: string[], status: string, motivo_perda?: string) {
   const supabase = await createClient()
   await supabase.from('leads').update({
